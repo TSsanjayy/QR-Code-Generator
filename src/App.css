@@ -1,0 +1,680 @@
+/* =========================================================
+   GLOBAL APP
+   ========================================================= */
+
+.app {
+  min-height: 100vh;
+  padding: 40px;
+  background: #f5f7fb;
+  color: #111827;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+.app h1 {
+  text-align: center;
+  margin: 0 0 30px;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   DESKTOP LAYOUT
+   ========================================================= */
+
+.layout {
+  max-width: 1000px;
+  margin: 0 auto;
+
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: start;
+}
+
+.controls {
+  min-width: 0;
+}
+
+.output {
+  position: sticky;
+  top: 20px;
+}
+
+
+/* =========================================================
+   QR TYPE TABS
+   ========================================================= */
+
+.type-tabs {
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+}
+
+.type-tabs button {
+  padding: 10px 20px;
+
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #374151;
+
+  border-radius: 8px;
+
+  cursor: pointer;
+  font-size: 15px;
+
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+}
+
+.type-tabs button:hover {
+  background: #f3f4f6;
+}
+
+.type-tabs button.active {
+  background: #111827;
+  color: white;
+  border-color: #111827;
+}
+
+
+/* =========================================================
+   INPUT SECTION
+   ========================================================= */
+
+.input-section {
+  max-width: none;
+  margin: 0 0 25px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.input-section label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.input-section input,
+.input-section select {
+  width: 100%;
+
+  padding: 11px 12px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+
+  font-size: 15px;
+  background: white;
+  color: #111827;
+}
+
+.input-section input::placeholder {
+  color: #9ca3af;
+}
+
+.input-section input:focus,
+.input-section select:focus {
+  outline: none;
+  border-color: #111827;
+}
+
+
+/* =========================================================
+   VALIDATION ERROR
+   ========================================================= */
+
+.error {
+  margin: 0;
+  padding: 10px 12px;
+
+  border-radius: 7px;
+
+  background: #fee2e2;
+  color: #b91c1c;
+
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+
+/* =========================================================
+   CUSTOMIZE SECTION
+   ========================================================= */
+
+.customize {
+  max-width: none;
+
+  margin: 0 0 30px;
+  padding: 20px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+
+  background: white;
+
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.customize legend {
+  padding: 0 8px;
+
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.customize label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.customize select {
+  width: 100%;
+
+  padding: 11px 12px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+
+  font-size: 15px;
+  background: white;
+  color: #111827;
+}
+
+.customize input[type="range"] {
+  width: 100%;
+  cursor: pointer;
+}
+
+.customize input[type="color"] {
+  width: 60px;
+  height: 40px;
+
+  padding: 3px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+
+  background: white;
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   QR PREVIEW
+   ========================================================= */
+
+.qr-wrapper {
+  width: fit-content;
+  max-width: 100%;
+  min-height: 320px;
+
+  margin: 0 auto 25px;
+  padding: 10px;
+
+  background: white;
+
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  position: relative;
+}
+
+.qr-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  max-width: 100%;
+}
+
+.qr-preview canvas {
+  display: block;
+
+  max-width: 100%;
+  height: auto;
+}
+
+
+/* =========================================================
+   EMPTY QR PREVIEW
+   ========================================================= */
+
+.qr-wrapper.empty {
+  border: 2px dashed #d1d5db;
+}
+
+.qr-wrapper.empty .qr-preview {
+  display: none;
+}
+
+.placeholder {
+  margin: 0;
+
+  color: #9ca3af;
+
+  text-align: center;
+  font-size: 14px;
+}
+
+
+/* =========================================================
+   DOWNLOAD BUTTON
+   ========================================================= */
+
+.output button {
+  display: block;
+
+  margin: 0 auto;
+  padding: 12px 25px;
+
+  border: none;
+  border-radius: 8px;
+
+  background: #111827;
+  color: white;
+
+  font-size: 15px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s,
+    transform 0.1s;
+}
+
+.output button:hover:not(:disabled) {
+  background: #374151;
+}
+
+.output button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.output button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   KEYBOARD ACCESSIBILITY
+   ========================================================= */
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+
+/* =========================================================
+   TABLET / MOBILE
+   ========================================================= */
+
+@media (max-width: 800px) {
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 25px;
+  }
+
+  .output {
+    position: static;
+
+    /* Preview comes before controls on mobile */
+    order: -1;
+  }
+
+  .type-tabs {
+    justify-content: center;
+  }
+}
+
+
+/* =========================================================
+   SMALL MOBILE
+   ========================================================= */
+
+@media (max-width: 600px) {
+  .app {
+    padding: 25px 15px;
+  }
+
+  .app h1 {
+    font-size: 26px;
+    margin-bottom: 25px;
+  }
+
+  .type-tabs {
+    gap: 6px;
+  }
+
+  .type-tabs button {
+    padding: 9px 14px;
+    font-size: 14px;
+  }
+
+  .input-section,
+  .customize {
+    width: 100%;
+  }
+
+  .qr-wrapper {
+    min-width: 0;
+    width: 100%;
+
+    /* Prevent horizontal scrolling */
+    overflow: visible;
+  }
+
+  .qr-preview {
+    width: 100%;
+  }
+
+  .qr-preview canvas {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* =========================================================
+   CONTRAST WARNING
+   ========================================================= */
+
+.contrast-warning {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.contrast-warning.good {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.contrast-warning.warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* =========================================================
+   SCAN WARNINGS
+   ========================================================= */
+
+.scan-warning {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* =========================================================
+   RECENT QR CODES
+   ========================================================= */
+
+.recent-section {
+  margin-top: 30px;
+}
+
+.recent-section h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recent-item {
+  width: 100%;
+  padding: 12px 14px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+
+  background: white;
+  color: #111827;
+
+  cursor: pointer;
+  text-align: left;
+
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+
+.recent-item:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.recent-item span {
+  font-weight: 600;
+}
+
+.recent-item small {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+/* =========================================================
+   RECENT HEADER
+   ========================================================= */
+
+.recent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.recent-header h2 {
+  margin: 0;
+}
+
+.clear-recent {
+  padding: 6px 10px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+
+  background: white;
+  color: #dc2626;
+
+  font-size: 13px;
+  cursor: pointer;
+
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+
+.clear-recent:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+/* =========================================================
+   PRESETS
+   ========================================================= */
+
+.presets {
+  margin-bottom: 30px;
+}
+
+.presets h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.preset-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.preset {
+  padding: 14px;
+
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+
+  background: white;
+  color: #111827;
+
+  cursor: pointer;
+  text-align: left;
+
+  transition:
+    border-color 0.2s,
+    background 0.2s,
+    transform 0.1s;
+}
+
+.preset:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+}
+
+.preset:active {
+  transform: translateY(1px);
+}
+
+.preset-name {
+  display: block;
+  margin-bottom: 4px;
+
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.preset-description {
+  display: block;
+
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+@media (max-width: 600px) {
+  .preset-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================
+   GRADIENT CONTROLS
+   ========================================================= */
+
+.checkbox-label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.checkbox-label input {
+  width: 16px;
+  height: 16px;
+}
+
+.gradient-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+@media (max-width: 600px) {
+  .gradient-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================
+   LOGO CONTROLS
+   ========================================================= */
+
+.remove-logo {
+  width: 100%;
+  padding: 9px 12px;
+
+  border: 1px solid #fca5a5;
+  border-radius: 7px;
+
+  background: #fef2f2;
+  color: #dc2626;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.remove-logo:hover {
+  background: #fee2e2;
+}
+
+/* =========================================================
+   QR SCAN WARNINGS
+   ========================================================= */
+
+.scan-warnings {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  background: #fffbeb;
+}
+
+.scan-warnings p {
+  margin: 0;
+  color: #92400e;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.scan-warnings p + p {
+  margin-top: 6px;
+}
