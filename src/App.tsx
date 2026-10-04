@@ -18,7 +18,7 @@ interface S {
   size: number; margin: number; fg: string; bg: string; ecc: ECC; dot: Dot; corner: Corner;
   grad: boolean; g1: string; g2: string; logo: string; logoSize: number;
 }
-interface Recent { id: number; type: QRType; data: string; s: S; at: number }
+interface Recent { id: number; type: QRType; data: string; s: S; at: number; f?: Fmt }
 
 const DEFAULTS: S = {
   size: 400, margin: 12, fg: "#111729", bg: "#ffffff", ecc: "M", dot: "rounded", corner: "extra-rounded",
@@ -42,10 +42,8 @@ const SIMPLE: Partial<Record<QRType, { key: keyof Fields; label: string; ph: str
   email: { key: "email", label: "Email address", ph: "name@example.com" },
   phone: { key: "phone", label: "Phone number", ph: "+91 98765 43210" },
 };
-const FORMATS: { v: Fmt; label: string; desc: string }[] = [
-  { v: "png", label: "PNG", desc: "Lossless · web & print" },
-  { v: "jpeg", label: "JPG", desc: "Smaller · no transparency" },
-  { v: "svg", label: "SVG", desc: "Vector · scales forever" },
+const FORMATS: { v: Fmt; label: string }[] = [
+  { v: "png", label: "PNG" }, { v: "jpeg", label: "JPG" }, { v: "svg", label: "SVG" },
 ];
 const SECURITY: { v: Fields["security"]; label: string }[] = [
   { v: "WPA", label: "WPA" }, { v: "WEP", label: "WEP" }, { v: "nopass", label: "Open" },
@@ -53,7 +51,7 @@ const SECURITY: { v: Fields["security"]; label: string }[] = [
 const TABS: Tab[] = ["content", "style", "logo"];
 const DOTS: Dot[] = ["square", "dots", "rounded", "extra-rounded", "classy", "classy-rounded"];
 const CORNERS: Corner[] = ["square", "dot", "extra-rounded"];
-const DR: Record<Dot, string> = { square: "0", dots: "50%", rounded: "28%", "extra-rounded": "42%", classy: "0 60% 0 60%", "classy-rounded": "30% 62% 30% 62%" };
+const DR: Record<Dot, string> = { square: "0", dots: "50%", rounded: "32%", "extra-rounded": "44%", classy: "0 65% 0 65%", "classy-rounded": "38% 72% 38% 72%" };
 const CR: Record<Corner, string> = { square: "0", dot: "50%", "extra-rounded": "34%" };
 
 /* =========================================================
@@ -77,6 +75,7 @@ const BTN_ICONS = {
   moon: <path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z" />,
   sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>,
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+  scan: <path d="M4 8V6a2 2 0 012-2h2M16 4h2a2 2 0 012 2v2M20 16v2a2 2 0 01-2 2h-2M8 20H6a2 2 0 01-2-2v-2M4 12h16" />,
 } satisfies Record<string, ReactNode>;
 
 function Ico({ k }: { k: keyof typeof BTN_ICONS }) {
@@ -99,6 +98,41 @@ const ago = (t: number) => {
   return m < 1 ? "just now" : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : new Date(t).toLocaleDateString();
 };
 
+// short, human label for a saved code
+const describe = (r: Recent) => {
+  if (r.type === "email") return r.data.replace("mailto:", "");
+  if (r.type === "phone") return r.data.replace("tel:", "");
+  if (r.type === "wifi") return r.data.match(/;S:(.*?);P:/)?.[1] || "Wi-Fi network";
+  if (r.type === "url") {
+    try { const u = new URL(r.data); return u.hostname.replace(/^www\./, "") + (u.pathname === "/" ? "" : u.pathname); } catch { return r.data; }
+  }
+  return r.data;
+};
+
+const hostOf = (u: string) => {
+  try { return new URL(/^[a-z]+:/i.test(u) ? u : `https://${u}`).hostname.replace(/^www\./, ""); } catch { return u; }
+};
+
+// one place that turns a design into QR options (used by the preview AND "download again")
+function optionsFor(v: S, data: string) {
+  const fill = {
+    color: v.fg,
+    gradient: v.grad
+      ? { type: "linear" as const, rotation: Math.PI / 4, colorStops: [{ offset: 0, color: v.g1 }, { offset: 1, color: v.g2 }] }
+      : undefined,
+  };
+  return {
+    data, width: v.size, height: v.size, margin: v.margin,
+    qrOptions: { errorCorrectionLevel: v.ecc },
+    dotsOptions: { ...fill, type: v.dot },
+    cornersSquareOptions: { ...fill, type: v.corner },
+    cornersDotOptions: { ...fill, type: v.corner === "dot" ? ("dot" as const) : ("square" as const) },
+    backgroundOptions: { color: v.bg },
+    image: v.logo || undefined,
+    imageOptions: { crossOrigin: "anonymous", margin: 4, imageSize: v.logoSize, hideBackgroundDots: true },
+  };
+}
+
 function lum(hex: string) {
   const n = parseInt(hex.replace("#", ""), 16);
   const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => {
@@ -115,29 +149,68 @@ const contrastOf = (a: string, b: string) => {
 // pixel "M" for the logo; a scan pass lights the modules in turn
 const M_GLYPH = [1,0,0,0,1, 1,1,0,1,1, 1,0,1,0,1, 1,0,0,0,1, 1,0,0,0,1];
 
-// the verdict pill shows a tiny QR whose modules are derived from your content:
-// a 4×4 finder block on the left, data modules (seeded by the payload) on the right
-const MC = 14, MR = 4;
-function matrixFor(payload: string) {
-  let h = 2166136261;
-  for (let i = 0; i < payload.length; i++) { h ^= payload.charCodeAt(i); h = Math.imul(h, 16777619); }
-  let seed = (h >>> 0) || 1;
-  const rnd = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
-  const cells = Array.from({ length: MC * MR }, (_, i) => {
-    const c = i % MC, r = Math.floor(i / MC);
-    const fin = c < 4;
-    const on = fin ? r === 0 || r === 3 || c === 0 || c === 3 : rnd() > 0.45;
-    return { on, fin, f: rnd() };
-  });
-  // data modules in a stable "damage order" so warnings corrupt the same cells every time
-  const order = cells.map((_, i) => i).filter((i) => !cells[i].fin && cells[i].on).sort((a, b) => cells[a].f - cells[b].f);
-  return { cells, order };
-}
-
 function Mark() {
   return (
     <span className="mark" aria-hidden="true">
       {M_GLYPH.map((on, i) => <i key={i} className={on ? "on" : ""} style={vars({ "--d": `${(i % 5) * 0.16}s` })} />)}
+    </span>
+  );
+}
+
+// split-flap departure board: every character is a mechanical flap
+const FLAPS = 10;
+const FLAP_SET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const rndFlap = () => FLAP_SET[Math.floor(Math.random() * FLAP_SET.length)];
+const padFlap = (s: string) => {
+  const l = Math.max(0, Math.floor((FLAPS - s.length) / 2));
+  return (" ".repeat(l) + s + " ".repeat(FLAPS)).slice(0, FLAPS);
+};
+
+function Flap({ ch, i, busy }: { ch: string; i: number; busy: boolean }) {
+  const [cur, setCur] = useState(" ");   // starts blank, so the board flips in on load
+  const [prev, setPrev] = useState(" ");
+  const [k, setK] = useState(0);
+  const [landed, setLanded] = useState(false);
+  const live = useRef(" ");
+
+  useEffect(() => {
+    const timers: number[] = [];
+    const at = (fn: () => void, ms: number) => timers.push(window.setTimeout(fn, ms));
+    const flip = (next: string) => { setPrev(live.current); live.current = next; setCur(next); setK((n) => n + 1); };
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      live.current = ch; setCur(ch); setPrev(ch); setLanded(true);
+      return;
+    }
+    if (busy) { // scanning: the whole board clatters through random characters
+      setLanded(false);
+      const loop = () => { flip(rndFlap()); at(loop, 140 + (i % 3) * 20); };
+      at(loop, i * 45);
+      return () => timers.forEach(window.clearTimeout);
+    }
+    if (live.current === ch) { setLanded(true); return; }
+    setLanded(false); // result: each flap spins a few times, left to right, then lands
+    const n = 2 + (i % 3);
+    for (let s = 0; s < n; s++) at(() => flip(s === n - 1 ? ch : rndFlap()), i * 55 + s * 150);
+    at(() => setLanded(true), i * 55 + n * 150 + 60);
+    return () => timers.forEach(window.clearTimeout);
+  }, [ch, busy, i]);
+
+  return (
+    <span className={`flap ${ch === " " ? "sp" : ""} ${landed ? "landed" : ""}`} data-k={k} style={vars({ "--i": i })}>
+      <span className="f-top"><b>{cur}</b></span>
+      <span className="f-bot"><b>{prev}</b></span>
+      <span className="f-ft" key={`t${k}`}><b>{prev}</b></span>
+      <span className="f-fb" key={`b${k}`}><b>{cur}</b></span>
+      <i className="lamp" />
+    </span>
+  );
+}
+
+function Board({ text, busy }: { text: string; busy: boolean }) {
+  return (
+    <span className="board" aria-hidden="true">
+      {[...padFlap(text)].map((c, i) => <Flap key={i} ch={c} i={i} busy={busy} />)}
     </span>
   );
 }
@@ -154,6 +227,7 @@ export default function App() {
   const [preset, setPreset] = useState<string | null>(null);
   const [hover, setHover] = useState<Partial<S> | null>(null);
   const [modules, setModules] = useState(0);
+  const [sizes, setSizes] = useState<Partial<Record<Fmt, string>>>({});
   const [tab, setTab] = useState<Tab>("content");
   const [touched, setTouched] = useState(false);
   const [fmt, setFmt] = useState<Fmt>("png");
@@ -162,10 +236,10 @@ export default function App() {
   const [dlPhase, setDlPhase] = useState<"idle" | "busy" | "done">("idle");
   const [dlInfo, setDlInfo] = useState<{ size: string } | null>(null);
   const [recOpen, setRecOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [sizes, setSizes] = useState<Partial<Record<Fmt, string>>>({});
   const [recBump, setRecBump] = useState(0);
   const [recPulse, setRecPulse] = useState(false);
+  const [undo, setUndo] = useState<Recent[] | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
   const [dark, setDark] = useState(() => {
     try {
       const saved = localStorage.getItem("qr-theme");
@@ -185,8 +259,8 @@ export default function App() {
   const fileRef = useRef<HTMLInputElement>(null);
   const recRef = useRef<HTMLDivElement>(null);
   const recBtnRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
   const pulseTimer = useRef(0);
+  const undoTimer = useRef(0);
   const canvasRef = useRef<HTMLElement>(null);
   const coordRef = useRef<HTMLSpanElement>(null);
   const eyeRef = useRef<HTMLSpanElement>(null);
@@ -214,41 +288,48 @@ export default function App() {
   if (payload.length > 300 && v.size < 300) warns.push("Lots of data for this size");
   if (v.logo && v.ecc !== "H") warns.push("Use H error correction with a logo");
   if (v.logo && v.logoSize > 0.35) warns.push("Logo is very large");
-  const mx = useMemo(() => matrixFor(payload), [payload]);
-  const badIdx = new Set(mx.order.slice(0, Math.min(10, warns.length * 3))); // each warning "damages" 3 modules
 
-  /* ---------- simulated scan test: every design change re-runs it ---------- */
-  const wasPreview = useRef(false);
-  const sig = [previewing, payload, v.size, v.margin, v.ecc, v.dot, v.corner, v.fg, v.bg, v.grad, v.g1, v.g2, v.logo.length, v.logoSize].join("|");
-  const [phase, setPhase] = useState<"testing" | "done">("done");
+  /* ---------- scan test: runs only when asked, and always runs to the end ---------- */
+  const SCAN_MS = 1400;
+  const [phase, setPhase] = useState<"rest" | "scanning" | "settle">("rest");
   const [run, setRun] = useState(0);
   const [result, setResult] = useState<{ k: "ok" | "warn"; n: number } | null>(null);
+  const scanning = useRef(false);
+  const scanTimers = useRef<number[]>([]);
   const warnCount = useRef(0);
   warnCount.current = warns.length;
-  const testingUI = phase === "testing" && !previewing; // previews show the live result straight away
+  const scanOn = phase === "scanning";
+
+  const kickScan = () => {
+    if (!payload || scanning.current) return; // a scan in progress is never cut short or restarted
+    scanning.current = true;
+    setResult(null);
+    setPhase("scanning");
+    setRun((r) => r + 1);
+    scanTimers.current = [
+      window.setTimeout(() => {
+        scanning.current = false;
+        setPhase("settle");
+        setResult({ k: warnCount.current ? "warn" : "ok", n: Date.now() });
+      }, SCAN_MS),
+      window.setTimeout(() => setPhase("rest"), SCAN_MS + 1700),
+    ];
+  };
+  useEffect(() => () => scanTimers.current.forEach((id) => window.clearTimeout(id)), []);
+
+  // clicking a style option runs a full scan on the real QR
+  const onInspectorClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest(".tgrid button, .presets button, .toggle")) kickScan();
+  };
+
+  // the verdict text; the decode effect scrambles it while the code is being read
+  const label = !payload ? "WAITING" : warns.length ? `${warns.length} TO CHECK` : "SCANS WELL";
 
   useEffect(() => {
     if (!result) return;
     const id = window.setTimeout(() => setResult(null), 2400);
     return () => window.clearTimeout(id);
   }, [result]);
-
-  useEffect(() => {
-    if (!payload) { setPhase("done"); return; }
-    const quick = previewing || wasPreview.current; // previews get a short pass, real edits the full test
-    wasPreview.current = previewing;
-    let end = 0;
-    const start = window.setTimeout(() => {
-      setPhase("testing");
-      setRun((r) => r + 1);
-      if (!quick) setResult(null);
-      end = window.setTimeout(() => {
-        setPhase("done");
-        if (!quick) setResult({ k: warnCount.current ? "warn" : "ok", n: Date.now() });
-      }, quick ? 380 : 1250);
-    }, quick ? 70 : 0);
-    return () => { window.clearTimeout(start); window.clearTimeout(end); };
-  }, [sig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ---------- QR instance ---------- */
   useEffect(() => {
@@ -259,25 +340,24 @@ export default function App() {
 
   useEffect(() => {
     if (!payload || !qr.current) return;
-    const fill = {
-      color: v.fg,
-      gradient: v.grad
-        ? { type: "linear" as const, rotation: Math.PI / 4, colorStops: [{ offset: 0, color: v.g1 }, { offset: 1, color: v.g2 }] }
-        : undefined,
-    };
-    qr.current.update({
-      data: payload, width: v.size, height: v.size, margin: v.margin,
-      qrOptions: { errorCorrectionLevel: v.ecc },
-      dotsOptions: { ...fill, type: v.dot },
-      cornersSquareOptions: { ...fill, type: v.corner },
-      cornersDotOptions: { ...fill, type: v.corner === "dot" ? "dot" : "square" },
-      backgroundOptions: { color: v.bg },
-      image: v.logo || undefined,
-      imageOptions: { crossOrigin: "anonymous", margin: 4, imageSize: v.logoSize, hideBackgroundDots: true },
-    });
+    qr.current.update(optionsFor(v, payload));
     // module count lets the scan animation size the finder-pattern lock boxes
     const q = (qr.current as unknown as { _qr?: { getModuleCount: () => number } })._qr;
     if (q) setModules(q.getModuleCount());
+  }, [payload, v]);
+
+  // file size of each format (debounced, so sliders stay smooth)
+  useEffect(() => {
+    if (!payload || !qr.current) { setSizes({}); return; }
+    let alive = true;
+    const id = window.setTimeout(() => {
+      FORMATS.forEach(({ v: f }) => {
+        qr.current?.getRawData(f).then((b) => {
+          if (alive && b) setSizes((p) => ({ ...p, [f]: fmtSize((b as Blob).size) }));
+        }).catch(() => { /* optional */ });
+      });
+    }, 450);
+    return () => { alive = false; window.clearTimeout(id); };
   }, [payload, v]);
 
   /* ---------- persistence & global listeners ---------- */
@@ -295,28 +375,17 @@ export default function App() {
   useEffect(() => {
     if (!recOpen) return;
     const down = (e: MouseEvent) => { if (!recRef.current?.contains(e.target as Node)) setRecOpen(false); };
-    const key = (e: KeyboardEvent) => { if (e.key === "Escape") setRecOpen(false); };
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") { setRecOpen(false); recBtnRef.current?.focus(); } };
     document.addEventListener("mousedown", down);
     document.addEventListener("keydown", key);
     return () => { document.removeEventListener("mousedown", down); document.removeEventListener("keydown", key); };
   }, [recOpen]);
 
-  // format menu: close on outside click / Esc, and measure each format's file size
   useEffect(() => {
-    if (!menuOpen) return;
-    let alive = true;
-    setSizes({});
-    FORMATS.forEach(({ v: f }) => {
-      qr.current?.getRawData(f).then((b) => {
-        if (alive && b) setSizes((p) => ({ ...p, [f]: fmtSize((b as Blob).size) }));
-      }).catch(() => { /* size is optional */ });
-    });
-    const down = (e: MouseEvent) => { if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false); };
-    const key = (e: KeyboardEvent) => { if (e.key === "Escape") setMenuOpen(false); };
-    document.addEventListener("mousedown", down);
-    document.addEventListener("keydown", key);
-    return () => { alive = false; document.removeEventListener("mousedown", down); document.removeEventListener("keydown", key); };
-  }, [menuOpen]);
+    if (!recOpen) return;
+    const id = requestAnimationFrame(() => recRef.current?.querySelector<HTMLButtonElement>(".rl-main")?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [recOpen]);
 
   // Ctrl / ⌘ + S downloads
   useEffect(() => {
@@ -414,7 +483,7 @@ export default function App() {
     setFmt(f);
     qr.current.download({ name: `qr-${type}`, extension: f });
     const data = type === "wifi" ? payload.replace(/;P:.*;;$/, ";P:;;") : payload; // never keep Wi-Fi passwords
-    store([{ id: Date.now(), type, data, s: { ...s, logo: "" }, at: Date.now() }, ...recent.filter((r) => r.data !== data || r.type !== type)].slice(0, 5));
+    store([{ id: Date.now(), type, data, s: { ...s, logo: "" }, at: Date.now(), f }, ...recent.filter((r) => r.data !== data || r.type !== type)].slice(0, 5));
     flyToRecent();
     dlTimers.current.forEach((id) => window.clearTimeout(id));
     setDlInfo({ size: "" });
@@ -471,12 +540,40 @@ export default function App() {
       const m = r.data.match(/^WIFI:T:([^;]*);S:(.*);P:(.*);;$/);
       if (m) { f.security = m[1] as Fields["security"]; f.ssid = m[2]; f.password = m[3]; }
     }
-    setType(r.type); setFields(f); setS(r.s); setPreset(null); setTouched(r.type === "wifi"); setTab("content"); setRecOpen(false);
+    setType(r.type); setFields(f); setS(r.s); setPreset(null); setTouched(r.type === "wifi"); setTab("content"); setRecOpen(false); if (r.f) setFmt(r.f);
   };
 
   const reset = () => {
     setType("url"); setFields({ ...emptyFields, url: "https://example.com" });
     setS(DEFAULTS); setPreset(null); setTouched(false);
+  };
+
+  /* ---------- recent downloads ---------- */
+  const removeRecent = (ids: number[]) => {
+    setUndo(recent); // keep the old list so Undo can bring it back
+    store(recent.filter((r) => !ids.includes(r.id)));
+    window.clearTimeout(undoTimer.current);
+    undoTimer.current = window.setTimeout(() => setUndo(null), 5000);
+  };
+  const restoreRecent = () => { if (undo) store(undo); setUndo(null); };
+  const clearAll = () => { // first click arms it, second click clears
+    if (!confirmClear) { setConfirmClear(true); window.setTimeout(() => setConfirmClear(false), 2500); return; }
+    setConfirmClear(false);
+    removeRecent(recent.map((r) => r.id));
+  };
+  const redownload = (r: Recent) => { // saves the stored design again without loading it
+    const f = r.f ?? "png";
+    new QRCodeStyling({ type: "canvas", ...optionsFor(r.s, r.data) }).download({ name: `qr-${r.type}`, extension: f });
+    store([{ ...r, id: Date.now(), at: Date.now() }, ...recent.filter((x) => x.id !== r.id)]);
+    flash(`Saved again · ${f.toUpperCase()}`);
+  };
+  const navRecent = (e: React.KeyboardEvent<HTMLUListElement>) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    const rows = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>(".rl-main"));
+    if (!rows.length) return;
+    e.preventDefault();
+    const i = rows.indexOf(document.activeElement as HTMLButtonElement);
+    rows[(i + (e.key === "ArrowDown" ? 1 : -1) + rows.length) % rows.length].focus();
   };
 
   // theme switch: a circular wipe that grows from the button (falls back to an instant swap)
@@ -492,6 +589,60 @@ export default function App() {
   /* =========================================================
      RENDER
      ========================================================= */
+
+  /* ---------- QR details (content tab) ---------- */
+  const bytes = payload ? new TextEncoder().encode(payload).length : 0;
+  const version = modules ? Math.max(1, Math.round((modules - 17) / 4)) : 0;
+  const cm = (v.size / 300) * 2.54; // printed at 300 dpi
+  const density = version <= 5 ? 0 : version <= 12 ? 1 : 2;
+  const onScan =
+    type === "url" ? `Opens ${hostOf(fields.url)}`
+    : type === "email" ? `Starts an email to ${fields.email}`
+    : type === "phone" ? `Offers to call ${fields.phone}`
+    : type === "wifi" ? `Joins “${fields.ssid}”${fields.security === "nopass" ? " · open network" : ` · ${fields.security}`}`
+    : "Shows your text on screen";
+  const tip =
+    density === 2 ? "Dense code. Print it at 4 cm or larger, or shorten the content."
+    : cm < 2 ? "This prints very small. Aim for 2.5 cm or larger."
+    : type === "url" && payload.length > 60 ? "Long links make dense codes. A shorter link scans faster."
+    : "Looks good. Print at 2.5 cm or larger for reliable scans.";
+  const raw = type === "wifi" ? payload.replace(/;P:.*;;$/, ";P:••••••;;") : payload;
+  const stats: [string, ReactNode][] = [
+    ["Grid", `${modules} × ${modules}`],
+    ["Version", `${version} / 40`],
+    ["Data", `${payload.length} chars · ${bytes} B`],
+    ["Error fix", `${v.ecc} · ${{ L: 7, M: 15, Q: 25, H: 30 }[v.ecc]}%`],
+    ["Size", `${v.size}px · ${cm.toFixed(1)} cm`],
+    ["Scan from", `≈ ${Math.round(cm * 10)} cm`],
+    ["Contrast", `${contrast.toFixed(1)}:1`],
+    ["Density", <>{["Low", "Medium", "High"][density]}<span className={`dbar ${["", "mid", "high"][density]}`}>{[0, 1, 2].map((i) => <i key={i} className={i <= density ? "on" : ""} />)}</span></>],
+  ];
+  const details = payload ? (
+    <div className="details">
+      <div className="onscan"><Ico k="scan" /><span>When scanned<b>{onScan}</b></span></div>
+
+      <h3>QR details</h3>
+      <dl className="stats">
+        {stats.map(([k, val], i) => <div key={k} style={vars({ "--n": i })}><dt>{k}</dt><dd>{val}</dd></div>)}
+      </dl>
+
+      <h3>Quick save</h3>
+      <div className="fsizes">
+        {FORMATS.map((f) => (
+          <button key={f.v} type="button" title={`Download ${f.label}`} onClick={() => download(f.v)}>
+            <b>{f.label}</b><span>{sizes[f.v] ?? "…"}</span>
+          </button>
+        ))}
+      </div>
+
+      <h3>Raw data</h3>
+      <button type="button" className="raw" onClick={copy} title="Click to copy"><code>{raw}</code><Ico k="copy" /></button>
+
+      <p className="tip">{tip}</p>
+    </div>
+  ) : (
+    <p className="hint">QR details appear here once the content is valid.</p>
+  );
 
   return (
     <div className={`app ${dark ? "dark" : ""}`}>
@@ -509,28 +660,40 @@ export default function App() {
               <Ico k="clock" />Recent{recent.length > 0 && <em className="cnt" key={recBump}>{Math.min(recent.length, 5)}</em>}
             </button>
             {recOpen && (
-              <div className="recpop" role="dialog" aria-label="Recent QR codes">
+              <div className="recpop" role="dialog" aria-label="Recent downloads">
                 <div className="rhead">
-                  <h3>Last 5 downloads</h3>
-                  {recent.length > 0 && <button className="linkbtn" onClick={() => store([])}>Clear</button>}
+                  <h3>Recent downloads <em>{Math.min(recent.length, 5)}/5</em></h3>
+                  {recent.length > 0 && <button className={`linkbtn ${confirmClear ? "warn" : ""}`} onClick={clearAll}>{confirmClear ? "Sure? Click again" : "Clear all"}</button>}
                 </div>
+
                 {recent.length === 0 ? (
-                  <p className="rempty">Downloaded codes appear here.</p>
+                  <div className="rempty">
+                    <span className="rempty-ico"><Ico k="download" /></span>
+                    <b>Nothing here yet</b>
+                    <p>Download a code and it lands here, ready to reload or save again.</p>
+                  </div>
                 ) : (
-                  <ul className="rlist">
+                  <ul className="rlist" onKeyDown={navRecent}>
                     {recent.slice(0, 5).map((r, i) => (
                       <li key={r.id} style={vars({ "--n": i })}>
-                        <button className="rl-main" onClick={() => reuse(r)} title="Load this design">
-                          <i className="rl-dot" style={{ background: r.s.grad ? `linear-gradient(135deg, ${r.s.g1}, ${r.s.g2})` : r.s.fg }} />
-                          <span className="rl-type">{r.type}</span>
-                          <span className="rl-data">{r.data}</span>
-                          <small>{ago(r.at)}</small>
+                        <button className="rl-main" onClick={() => reuse(r)} title="Load this design into the editor">
+                          <i className="rl-dot" style={{ background: r.s.grad ? `linear-gradient(180deg, ${r.s.g1}, ${r.s.g2})` : r.s.fg }} />
+                          <span className="rl-body">
+                            <span className="rl-top"><span className="rl-type">{r.type}</span><span className="rl-fmt">{(r.f ?? "png").toUpperCase()}</span><small>{ago(r.at)}</small></span>
+                            <span className="rl-data">{describe(r)}</span>
+                          </span>
                         </button>
-                        <button className="rl-del" aria-label="Remove" onClick={() => store(recent.filter((x) => x.id !== r.id))}>✕</button>
+                        <span className="rl-acts">
+                          <button aria-label="Download again" title={r.type === "wifi" ? "Wi-Fi passwords aren't stored. Load it and re-enter the password." : "Download again"} disabled={r.type === "wifi"} onClick={() => redownload(r)}><Ico k="download" /></button>
+                          <button className="del" aria-label="Remove" title="Remove" onClick={() => removeRecent([r.id])}>✕</button>
+                        </span>
                       </li>
                     ))}
                   </ul>
                 )}
+
+                {undo && <div className="rundo"><span>Removed {Math.max(1, undo.length - recent.length)}</span><button className="linkbtn" onClick={restoreRecent}>Undo</button></div>}
+                {recent.length > 0 && <p className="rfoot">Click a row to load it · <Ico k="download" /> saves it again</p>}
               </div>
             )}
           </div>
@@ -560,14 +723,22 @@ export default function App() {
           {note && <div className="toast" key={note} role="status">{note}</div>}
 
           <div className="stagewrap">
-            <div className={`qrframe ${payload && phase === "testing" ? "testing" : ""} ${previewing ? "pv" : ""}`} data-size={`${v.size} × ${v.size} px`}>
+            <div className={`qrframe ${scanOn ? "testing" : ""} ${phase !== "rest" ? "hudon" : ""} ${previewing ? "pv" : ""}`} data-size={`${v.size} × ${v.size} px`}>
+              {payload && phase !== "rest" && (
+                <span className="hud" key={run} aria-hidden="true">
+                  <i>SEARCHING</i><i>LOCKED</i><i>DECODING</i>
+                  <i className={warns.length ? "end w" : "end"}>{warns.length ? "CHECK" : "DECODED"}</i>
+                </span>
+              )}
               <div className={`qrcard ${payload ? "" : "stale"} ${previewing ? "preview" : ""}`}>
                 <div ref={host} className="qr" />
-                {payload && phase === "testing" && previewing && <span className="sweep pv" key={run} />}
-                {payload && phase === "testing" && !previewing && (
-                  <div className="scanfx" key={run} style={vars({ "--qm": `${(v.margin / v.size) * 100}%`, "--qf": `${(7 / (modules || 25)) * (1 - (2 * v.margin) / v.size) * 100}%` })}>
-                    <i className="fd tl" /><i className="fd tr" /><i className="fd bl" />
-                    <b className="laser" />
+                {payload && scanOn && (
+                  <div className="scanfx" key={run} aria-hidden="true" style={vars({ "--qm": `${(v.margin / v.size) * 100}%`, "--qf": `${(7 / (modules || 25)) * (1 - (2 * v.margin) / v.size) * 100}%`, "--mods": modules || 25 })}>
+                  <i className="fp tl" /><i className="fp tr" /><i className="fp bl" />
+                  <b className="readgrid" />
+                  <b className="beam" />
+                    <b className={`okflash ${warns.length ? "w" : ""}`} />
+                    <b className={`ping ${warns.length ? "w" : ""}`} />
                   </div>
                 )}
                 {!payload && <p className="fix">Complete the details to update</p>}
@@ -584,27 +755,23 @@ export default function App() {
               )}
             </div>
 
-            <div className={`verdict ${!payload ? "idle" : testingUI ? "testing" : warns.length ? "bad" : "good"}`} title="Scan reliability" aria-live="polite">
-              {!payload ? "Waiting for details" : (
-                <>
-                  <span className="mx" aria-hidden="true">
-                    {mx.cells.map((c, i) => (
-                      <i key={i} className={`${c.on ? "on" : ""} ${c.fin ? "fin" : ""} ${badIdx.has(i) ? "bad" : ""}`}
-                        style={vars({ "--c": i % MC, "--r": Math.floor(i / MC), "--f": c.f.toFixed(3) })} />
-                    ))}
-                  </span>
-                  <span className="stampslot">
-                    {!testingUI && (
-                      <svg key={warns.length ? "b" : "g"} className="stamp" viewBox="0 0 24 24" aria-hidden="true">
-                        <circle cx="12" cy="12" r="10" pathLength="1" />
-                        {warns.length ? <path d="M12 7.5v6M12 16.8v.01" pathLength="1" /> : <path d="M7.6 12.4l3 3 5.8-6.2" pathLength="1" />}
-                      </svg>
-                    )}
-                  </span>
-                  <span key={testingUI ? "r" : warns.length ? "b" : "g"} className="vstat">
-                    {testingUI ? "Reading signal" : warns.length ? `${warns.length} to check` : `Scans well · ${contrast.toFixed(1)}:1`}
-                  </span>
-                </>
+            <div className="vrow">
+              <button type="button" disabled={!payload} onClick={kickScan} aria-live="polite"
+                title={payload ? "Click to run a full scan test" : undefined}
+                className={`verdict ${!payload ? "idle" : scanOn ? "testing" : warns.length ? "bad" : "good"} ${phase === "settle" ? "settle" : ""}`}>
+                <svg className="vicon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path className="brk" d="M4 9V6a2 2 0 012-2h3M15 4h3a2 2 0 012 2v3M20 15v3a2 2 0 01-2 2h-3M9 20H6a2 2 0 01-2-2v-3" />
+                  {scanOn && <path className="vline" d="M7 12h10" />}
+                  {payload && !scanOn && !warns.length && <path key="g" className="vmark" d="M8 12.5l2.7 2.7L16.5 9.5" pathLength="1" />}
+                  {payload && !scanOn && warns.length > 0 && <path key="b" className="vmark" d="M12 8v5M12 16.5v.01" pathLength="1" />}
+                </svg>
+                <span className="sr">{scanOn ? "scanning" : label.toLowerCase()}</span>
+                <Board text={label} busy={scanOn} />
+              </button>
+              {payload && (
+                <span className={`ratio ${contrast >= 4 ? "ok" : "low"}`} title="Contrast between the code and its background. 4:1 or higher scans reliably.">
+                  <b>{contrast.toFixed(1)}</b>:1 contrast
+                </span>
               )}
             </div>
             {warns.length > 0 && <ul className="warns">{warns.map((w) => <li key={w}>{w}</li>)}</ul>}
@@ -612,45 +779,28 @@ export default function App() {
 
           {/* ---------- dock ---------- */}
           <div className="dock">
-            <div className={`dl ${dlPhase}`} ref={menuRef}>
-              <button className="dl-main" disabled={!payload} onClick={() => download()} title="Download (Ctrl/⌘ + S)">
-                <svg className="trayicon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  {dlPhase === "done"
-                    ? <path className="ck" d="M5 12.5l4.5 4.5L19 7.5" pathLength="1" />
-                    : <><path className="arrow" d="M12 3v11m0 0l-4-4m4 4l4-4" /><path d="M5 20h14" /></>}
-                </svg>
-                <span key={dlPhase} className="dl-label">
-                  {dlPhase === "busy" ? "Saving…" : dlPhase === "done" ? `Saved${dlInfo?.size ? ` · ${dlInfo.size}` : ""}` : `Download ${fmt.toUpperCase()}`}
-                </span>
-                <i className="dl-bar" />
-              </button>
-              <button className="dl-caret" disabled={!payload} aria-haspopup="menu" aria-expanded={menuOpen} aria-label="Choose format" onClick={() => setMenuOpen((o) => !o)}>
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
-              </button>
+            <Seg label="Format" value={fmt} options={FORMATS} onChange={setFmt} />
+            <span className="sep" />
 
-              {menuOpen && (
-                <div className="dl-menu" role="menu" aria-label="Download format">
-                  <p className="dl-head">Export as</p>
-                  {FORMATS.map((f, i) => (
-                    <button key={f.v} role="menuitemradio" aria-checked={fmt === f.v} className={`dl-item ${fmt === f.v ? "on" : ""}`} style={vars({ "--n": i })}
-                      onClick={() => { setMenuOpen(false); download(f.v); }}>
-                      <b>{f.label}</b><span>{f.desc}</span><em>{sizes[f.v] ?? "…"}</em>
-                    </button>
-                  ))}
-                  <p className="dl-foot">Ctrl / ⌘ + S repeats your last format</p>
-                </div>
-              )}
-            </div>
-
-            <button className="plain" disabled={!payload} onClick={share}><Ico k="share" />Share</button>
-            <button className={`plain ${copied ? "ok" : ""}`} disabled={!payload} onClick={copy}>
-              {copied ? <><Ico k="check" />Copied</> : <><Ico k="copy" />Copy</>}
+            <button className={`dl ${dlPhase}`} disabled={!payload} onClick={() => download()} title="Download (Ctrl/⌘ + S)">
+              <svg className="dl-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                {dlPhase === "idle" && <><path className="arrow" d="M12 4v11m0 0l-4-4m4 4l4-4" /><path d="M5 20h14" /></>}
+                {dlPhase === "busy" && <><circle className="track" cx="12" cy="12" r="8" /><circle className="ring" cx="12" cy="12" r="8" pathLength="1" /></>}
+                {dlPhase === "done" && <path className="ck" d="M5 12.5l4.5 4.5L19 7.5" pathLength="1" />}
+              </svg>
+              <span key={dlPhase} className="dl-label">
+                {dlPhase === "busy" ? "Saving" : dlPhase === "done" ? `Saved${dlInfo?.size ? ` · ${dlInfo.size}` : ""}` : "Download"}
+              </span>
             </button>
+
+            <span className="sep" />
+            <button className="plain sq" disabled={!payload} onClick={share} aria-label="Share" title="Share"><Ico k="share" /></button>
+            <button className={`plain sq ${copied ? "ok" : ""}`} disabled={!payload} onClick={copy} aria-label="Copy QR data" title="Copy QR data"><Ico k={copied ? "check" : "copy"} /></button>
           </div>
         </main>
 
         {/* ---------- inspector ---------- */}
-        <aside className="inspector">
+        <aside className="inspector" onClick={onInspectorClick}>
           <div className="itabs" role="tablist" style={vars({ "--n": TABS.length, "--i": TABS.indexOf(tab) })}>
             {TABS.map((t) => (
               <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{pretty(t)}</button>
@@ -659,6 +809,7 @@ export default function App() {
 
           <div className="ibody" key={tab + type}>
             {tab === "content" && (
+              <>
               <div className="stack" onBlur={() => setTouched(true)}>
                 {simple && <Field label={simple.label} ph={simple.ph} value={fields[simple.key]} onChange={(val) => setField(simple.key, val)} />}
                 {type === "wifi" && (
@@ -670,6 +821,8 @@ export default function App() {
                 )}
                 {touched && error && <p className="err" role="alert">{error}</p>}
               </div>
+              {details}
+              </>
             )}
 
             {tab === "style" && (
@@ -680,7 +833,7 @@ export default function App() {
                     <button key={p.name} className={preset === p.name ? "on" : ""}
                       onClick={() => { setS((o) => ({ ...o, ...p.s })); setPreset(p.name); setHover(null); }}
                       onMouseEnter={() => setHover(p.s)} onMouseLeave={() => setHover(null)} onFocus={() => setHover(p.s)} onBlur={() => setHover(null)}>
-                      <i style={{ background: p.s.grad ? `linear-gradient(135deg, ${p.s.g1}, ${p.s.g2})` : p.s.fg }} />{p.name}
+                      <i style={{ background: p.s.grad ? `linear-gradient(135deg, ${p.s.g1}, ${p.s.g2})` : `linear-gradient(135deg, ${p.s.bg ?? "#fff"} 50%, ${p.s.fg ?? "#000"} 50%)` }} />{p.name}
                     </button>
                   ))}
                 </div>
