@@ -157,61 +157,182 @@ function Mark() {
   );
 }
 
-// split-flap departure board: every character is a mechanical flap
-const FLAPS = 10;
-const FLAP_SET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-const rndFlap = () => FLAP_SET[Math.floor(Math.random() * FLAP_SET.length)];
-const padFlap = (s: string) => {
-  const l = Math.max(0, Math.floor((FLAPS - s.length) / 2));
-  return (" ".repeat(l) + s + " ".repeat(FLAPS)).slice(0, FLAPS);
-};
+const clamp = (n: number, lo = 0, hi = 100) => Math.min(hi, Math.max(lo, n));
 
-function Flap({ ch, i, busy }: { ch: string; i: number; busy: boolean }) {
-  const [cur, setCur] = useState(" ");   // starts blank, so the board flips in on load
-  const [prev, setPrev] = useState(" ");
-  const [k, setK] = useState(0);
-  const [landed, setLanded] = useState(false);
-  const live = useRef(" ");
+const GRADES = [
+  { min: 85, name: "Excellent", tone: "good" },
+  { min: 70, name: "Good", tone: "good" },
+  { min: 50, name: "Fair", tone: "mid" },
+  { min: 0, name: "Poor", tone: "bad" },
+] as const;
 
+// eases a number toward its target (instant when reduced motion is on)
+function useTween(target: number) {
+  const [n, setN] = useState(0);
+  const cur = useRef(0);
   useEffect(() => {
-    const timers: number[] = [];
-    const at = (fn: () => void, ms: number) => timers.push(window.setTimeout(fn, ms));
-    const flip = (next: string) => { setPrev(live.current); live.current = next; setCur(next); setK((n) => n + 1); };
-
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      live.current = ch; setCur(ch); setPrev(ch); setLanded(true);
-      return;
-    }
-    if (busy) { // scanning: the whole board clatters through random characters
-      setLanded(false);
-      const loop = () => { flip(rndFlap()); at(loop, 140 + (i % 3) * 20); };
-      at(loop, i * 45);
-      return () => timers.forEach(window.clearTimeout);
-    }
-    if (live.current === ch) { setLanded(true); return; }
-    setLanded(false); // result: each flap spins a few times, left to right, then lands
-    const n = 2 + (i % 3);
-    for (let s = 0; s < n; s++) at(() => flip(s === n - 1 ? ch : rndFlap()), i * 55 + s * 150);
-    at(() => setLanded(true), i * 55 + n * 150 + 60);
-    return () => timers.forEach(window.clearTimeout);
-  }, [ch, busy, i]);
-
-  return (
-    <span className={`flap ${ch === " " ? "sp" : ""} ${landed ? "landed" : ""}`} data-k={k} style={vars({ "--i": i })}>
-      <span className="f-top"><b>{cur}</b></span>
-      <span className="f-bot"><b>{prev}</b></span>
-      <span className="f-ft" key={`t${k}`}><b>{prev}</b></span>
-      <span className="f-fb" key={`b${k}`}><b>{cur}</b></span>
-      <i className="lamp" />
-    </span>
-  );
+    const from = cur.current;
+    const t0 = performance.now();
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let raf = 0;
+    const step = (t: number) => {
+      const p = reduce ? 1 : Math.min(1, (t - t0) / 600);
+      cur.current = from + (target - from) * (1 - Math.pow(1 - p, 3));
+      setN(Math.round(cur.current));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+  return n;
 }
 
-function Board({ text, busy }: { text: string; busy: boolean }) {
+/* =========================================================
+   TITLE PAGE · floating 3D scan card → modules dissolve
+   ========================================================= */
+
+const QN = 21;
+const QR_CELLS = (() => {
+  const out: { on: boolean; eye: boolean; r: number; dx: number; dy: number; dz: number }[] = [];
+  for (let i = 0; i < QN * QN; i++) {
+    const r = Math.floor(i / QN), c = i % QN;
+    const inF = (r < 7 && c < 7) || (r < 7 && c > 13) || (r > 13 && c < 7);
+    let on = false, eye = false;
+    if (inF) {
+      const rr = r > 13 ? r - 14 : r, cc = c > 13 ? c - 14 : c;
+      const ring = rr === 0 || rr === 6 || cc === 0 || cc === 6;
+      const core = rr >= 2 && rr <= 4 && cc >= 2 && cc <= 4;
+      on = ring || core; eye = core;
+    } else {
+      const sep = (r < 8 && c < 8) || (r < 8 && c > 12) || (r > 12 && c < 8);
+      const h = Math.imul(i + 11, 73856093) ^ Math.imul(i * i + 5, 19349663);
+      on = !sep && ((h >>> 4) % 9) < 4;
+    }
+    const h2 = Math.imul(i + 3, 83492791) ^ (i << 7);
+    out.push({ on, eye, r, dz: 120 + ((h2 >>> 3) % 320), dx: ((h2 >>> 7) % 260) - 130, dy: ((h2 >>> 11) % 260) - 130 });
+  }
+  return out;
+})();
+
+const COLS = 16, ROWS = 10;
+const DISS = Array.from({ length: COLS * ROWS }, (_, i) => ({
+  cx: ((i % COLS) + 0.5) / COLS,
+  cy: (Math.floor(i / COLS) + 0.5) / ROWS,
+  j: ((Math.imul(i + 1, 2654435761) >>> 8) % 100) / 100,
+}));
+
+/* ---------- title page: floating 3D scan card → the screen dissolves into modules ---------- */
+function Intro({ onReveal, onDone }: { onReveal: () => void; onDone: () => void }) {
+  const root = useRef<HTMLDivElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const going = useRef(false);
+  const timers = useRef<number[]>([]);
+  const [leaving, setLeaving] = useState(false);
+  const [origin, setOrigin] = useState({ x: 0.3, y: 0.7 });
+  const pct = useTween(98);
+
+  const enter = () => {
+    if (going.current) return;
+    going.current = true;
+    const r = btn.current?.getBoundingClientRect();
+    if (r) setOrigin({ x: (r.left + r.width / 2) / window.innerWidth, y: (r.top + r.height / 2) / window.innerHeight });
+    setLeaving(true);
+    timers.current = [window.setTimeout(onReveal, 450), window.setTimeout(onDone, 2000)];
+  };
+
+  useEffect(() => {
+    btn.current?.focus({ preventScroll: true });
+    const key = (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); enter(); } };
+    window.addEventListener("keydown", key);
+    return () => { window.removeEventListener("keydown", key); timers.current.forEach((id) => window.clearTimeout(id)); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const move = (e: React.PointerEvent) => {
+    const el = root.current;
+    if (!el) return;
+    const x = e.clientX / window.innerWidth, y = e.clientY / window.innerHeight;
+    el.style.setProperty("--px", String((x - 0.5) * 2));
+    el.style.setProperty("--py", String((y - 0.5) * 2));
+    el.style.setProperty("--mx", `${e.clientX}px`);
+    el.style.setProperty("--my", `${e.clientY}px`);
+    el.style.setProperty("--gx", `${x * 100}%`);
+    el.style.setProperty("--gy", `${y * 100}%`);
+  };
+  const magnet = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const b = e.currentTarget, r = b.getBoundingClientRect();
+    b.style.setProperty("--bx", `${(e.clientX - (r.left + r.width / 2)) * 0.18}px`);
+    b.style.setProperty("--by", `${(e.clientY - (r.top + r.height / 2)) * 0.28}px`);
+  };
+  const unmagnet = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.currentTarget.style.setProperty("--bx", "0px");
+    e.currentTarget.style.setProperty("--by", "0px");
+  };
+
   return (
-    <span className="board" aria-hidden="true">
-      {[...padFlap(text)].map((c, i) => <Flap key={i} ch={c} i={i} busy={busy} />)}
-    </span>
+    <div ref={root} className={`intro ${leaving ? "leaving" : ""}`} onPointerMove={move} onClick={enter}>
+      <div className="i-cells" aria-hidden="true">
+        {DISS.map((c, i) => {
+          const d = Math.hypot((c.cx - origin.x) * 1.6, c.cy - origin.y) / 1.9;
+          return <i key={i} style={vars({ "--dl": `${(d * 0.7 + c.j * 0.12).toFixed(3)}s` })} />;
+        })}
+      </div>
+      <div className="i-spot" aria-hidden="true" />
+      <div className="i-grain" aria-hidden="true" />
+
+      <header className="i-top">
+        <span className="i-logo"><i />modul</span>
+        <span className="i-ver">QR studio · v2</span>
+      </header>
+
+      <div className="i-main">
+        <div className="i-copy">
+          <span className="i-tag" style={vars({ "--n": 0 })}><i />Scan-tested before you ship</span>
+          <h1 style={vars({ "--n": 1 })}>QR codes,<br /><em>engineered</em> to scan.</h1>
+          <p style={vars({ "--n": 2 })}>Style every module, then watch live readability, contrast and density update as you design.</p>
+          <div className="i-cta" style={vars({ "--n": 3 })}>
+            <button ref={btn} className="i-btn" onPointerMove={magnet} onPointerLeave={unmagnet}>
+              <span>Enter studio</span>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </button>
+            <kbd>↵ Enter</kbd>
+            <span className="i-anywhere">or click anywhere</span>
+          </div>
+          <ul className="i-meta" style={vars({ "--n": 4 })}>
+            <li><b>5</b>content types</li>
+            <li><b>3</b>export formats</li>
+            <li><b>Live</b>readability score</li>
+          </ul>
+        </div>
+
+        <div className="i-stage" aria-hidden="true">
+          <div className="i-zoom">
+            <div className="i-card">
+              <div className="plate p-glow" />
+              <div className="plate p-qr">
+                <div className="qgrid">
+                  {QR_CELLS.map((c, i) => (
+                    <i key={i} className={`${c.on ? "on" : ""} ${c.eye ? "eye" : ""}`}
+                      style={vars({ "--r": c.r, "--dx": `${c.dx}px`, "--dy": `${c.dy}px`, "--dz": `${c.dz}px` })} />
+                  ))}
+                </div>
+                <b className="qbeam" />
+                <span className="qc tl" /><span className="qc tr" /><span className="qc bl" /><span className="qc br" />
+              </div>
+              <div className="plate p-glass" />
+
+              <div className="chip c1">
+                <small>Scan readability</small>
+                <b>{pct}<i>%</i></b>
+                <span className="cbar"><i style={{ width: `${pct}%` }} /></span>
+              </div>
+              <div className="chip c2"><small>Error fix</small><b>H · 30%</b></div>
+              <div className="chip c3"><i /> Scan passed</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -221,6 +342,7 @@ function Board({ text, busy }: { text: string; busy: boolean }) {
 
 export default function App() {
   /* ---------- state ---------- */
+  const [intro, setIntro] = useState<"show" | "reveal" | "gone">("show");
   const [type, setType] = useState<QRType>("url");
   const [fields, setFields] = useState<Fields>({ ...emptyFields, url: "https://example.com" });
   const [s, setS] = useState<S>(DEFAULTS);
@@ -289,6 +411,24 @@ export default function App() {
   if (v.logo && v.ecc !== "H") warns.push("Use H error correction with a logo");
   if (v.logo && v.logoSize > 0.35) warns.push("Logo is very large");
 
+  /* ---------- scan readability ---------- */
+  const version = modules ? Math.max(1, Math.round((modules - 17) / 4)) : 0;
+  const cm = (v.size / 300) * 2.54; // printed at 300 dpi
+  const density = version <= 5 ? 0 : version <= 12 ? 1 : 2;
+  const inverted = tones.some((c) => lum(c) > lum(v.bg));
+  const factors = [
+    { k: "Contrast", w: 0.35, note: `${contrast.toFixed(1)}:1`,
+      s: contrast >= 7 ? 100 : contrast >= 4 ? 80 + ((contrast - 4) / 3) * 20 : clamp(((contrast - 1) / 3) * 80) },
+    { k: "Size", w: 0.2, note: `${cm.toFixed(1)} cm`, s: clamp((cm / 3) * 100) },
+    { k: "Margin", w: 0.15, note: `${v.margin}px`, s: clamp((v.margin / 10) * 100) },
+    { k: "Density", w: 0.15, note: ["Low", "Medium", "High"][density], s: [100, 70, 40][density] },
+    { k: "Error fix", w: 0.15, note: v.ecc, s: v.logo && v.ecc !== "H" ? 30 : { L: 50, M: 75, Q: 90, H: 100 }[v.ecc] },
+  ];
+  const score = payload
+    ? Math.round(clamp(factors.reduce((a, f) => a + f.s * f.w, 0) - (inverted ? 25 : 0) - (v.logo && v.logoSize > 0.35 ? 10 : 0)))
+    : 0;
+  const grade = GRADES.find((g) => score >= g.min) ?? GRADES[3];
+
   /* ---------- scan test: runs only when asked, and always runs to the end ---------- */
   const SCAN_MS = 1400;
   const [phase, setPhase] = useState<"rest" | "scanning" | "settle">("rest");
@@ -296,9 +436,10 @@ export default function App() {
   const [result, setResult] = useState<{ k: "ok" | "warn"; n: number } | null>(null);
   const scanning = useRef(false);
   const scanTimers = useRef<number[]>([]);
-  const warnCount = useRef(0);
-  warnCount.current = warns.length;
+  const scoreRef = useRef(0);
+  scoreRef.current = score;
   const scanOn = phase === "scanning";
+  const shown = useTween(payload && !scanOn ? score : 0);
 
   const kickScan = () => {
     if (!payload || scanning.current) return; // a scan in progress is never cut short or restarted
@@ -310,7 +451,7 @@ export default function App() {
       window.setTimeout(() => {
         scanning.current = false;
         setPhase("settle");
-        setResult({ k: warnCount.current ? "warn" : "ok", n: Date.now() });
+        setResult({ k: scoreRef.current >= 70 ? "ok" : "warn", n: Date.now() });
       }, SCAN_MS),
       window.setTimeout(() => setPhase("rest"), SCAN_MS + 1700),
     ];
@@ -321,9 +462,6 @@ export default function App() {
   const onInspectorClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest(".tgrid button, .presets button, .toggle")) kickScan();
   };
-
-  // the verdict text; the decode effect scrambles it while the code is being read
-  const label = !payload ? "WAITING" : warns.length ? `${warns.length} TO CHECK` : "SCANS WELL";
 
   useEffect(() => {
     if (!result) return;
@@ -592,20 +730,12 @@ export default function App() {
 
   /* ---------- QR details (content tab) ---------- */
   const bytes = payload ? new TextEncoder().encode(payload).length : 0;
-  const version = modules ? Math.max(1, Math.round((modules - 17) / 4)) : 0;
-  const cm = (v.size / 300) * 2.54; // printed at 300 dpi
-  const density = version <= 5 ? 0 : version <= 12 ? 1 : 2;
   const onScan =
     type === "url" ? `Opens ${hostOf(fields.url)}`
     : type === "email" ? `Starts an email to ${fields.email}`
     : type === "phone" ? `Offers to call ${fields.phone}`
     : type === "wifi" ? `Joins “${fields.ssid}”${fields.security === "nopass" ? " · open network" : ` · ${fields.security}`}`
     : "Shows your text on screen";
-  const tip =
-    density === 2 ? "Dense code. Print it at 4 cm or larger, or shorten the content."
-    : cm < 2 ? "This prints very small. Aim for 2.5 cm or larger."
-    : type === "url" && payload.length > 60 ? "Long links make dense codes. A shorter link scans faster."
-    : "Looks good. Print at 2.5 cm or larger for reliable scans.";
   const raw = type === "wifi" ? payload.replace(/;P:.*;;$/, ";P:••••••;;") : payload;
   const stats: [string, ReactNode][] = [
     ["Grid", `${modules} × ${modules}`],
@@ -620,6 +750,15 @@ export default function App() {
   const details = payload ? (
     <div className="details">
       <div className="onscan"><Ico k="scan" /><span>When scanned<b>{onScan}</b></span></div>
+
+      <h3>Readability <em className={`gpill ${grade.tone}`}>{score}%</em></h3>
+      <ul className="factors">
+        {factors.map((f, i) => (
+          <li key={f.k} className={f.s >= 70 ? "" : f.s >= 45 ? "mid" : "bad"} style={vars({ "--n": i, "--s": f.s })}>
+            <span>{f.k}</span><i className="fbar"><b /></i><em>{f.note}</em>
+          </li>
+        ))}
+      </ul>
 
       <h3>QR details</h3>
       <dl className="stats">
@@ -637,15 +776,13 @@ export default function App() {
 
       <h3>Raw data</h3>
       <button type="button" className="raw" onClick={copy} title="Click to copy"><code>{raw}</code><Ico k="copy" /></button>
-
-      <p className="tip">{tip}</p>
     </div>
   ) : (
     <p className="hint">QR details appear here once the content is valid.</p>
   );
 
   return (
-    <div className={`app ${dark ? "dark" : ""}`}>
+    <div className={`app ${dark ? "dark" : ""} ${intro === "show" ? "held" : ""}`}>
       {/* ---------- top bar ---------- */}
       <header className="bar">
         <div className="brand">
@@ -723,23 +860,11 @@ export default function App() {
           {note && <div className="toast" key={note} role="status">{note}</div>}
 
           <div className="stagewrap">
-            <div className={`qrframe ${scanOn ? "testing" : ""} ${phase !== "rest" ? "hudon" : ""} ${previewing ? "pv" : ""}`} data-size={`${v.size} × ${v.size} px`}>
-              {payload && phase !== "rest" && (
-                <span className="hud" key={run} aria-hidden="true">
-                  <i>SEARCHING</i><i>LOCKED</i><i>DECODING</i>
-                  <i className={warns.length ? "end w" : "end"}>{warns.length ? "CHECK" : "DECODED"}</i>
-                </span>
-              )}
+            <div className={`qrframe ${scanOn ? "testing" : ""} ${result ? `res-${result.k}` : ""} ${previewing ? "pv" : ""}`} data-size={`${v.size} × ${v.size} px`}>
               <div className={`qrcard ${payload ? "" : "stale"} ${previewing ? "preview" : ""}`}>
                 <div ref={host} className="qr" />
                 {payload && scanOn && (
-                  <div className="scanfx" key={run} aria-hidden="true" style={vars({ "--qm": `${(v.margin / v.size) * 100}%`, "--qf": `${(7 / (modules || 25)) * (1 - (2 * v.margin) / v.size) * 100}%`, "--mods": modules || 25 })}>
-                  <i className="fp tl" /><i className="fp tr" /><i className="fp bl" />
-                  <b className="readgrid" />
-                  <b className="beam" />
-                    <b className={`okflash ${warns.length ? "w" : ""}`} />
-                    <b className={`ping ${warns.length ? "w" : ""}`} />
-                  </div>
+                  <div className="scanfx" key={run} aria-hidden="true"><b className="beam" /></div>
                 )}
                 {!payload && <p className="fix">Complete the details to update</p>}
               </div>
@@ -757,16 +882,36 @@ export default function App() {
 
             <div className="vrow">
               <button type="button" disabled={!payload} onClick={kickScan} aria-live="polite"
-                title={payload ? "Click to run a full scan test" : undefined}
-                className={`verdict ${!payload ? "idle" : scanOn ? "testing" : warns.length ? "bad" : "good"} ${phase === "settle" ? "settle" : ""}`}>
-                <svg className="vicon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path className="brk" d="M4 9V6a2 2 0 012-2h3M15 4h3a2 2 0 012 2v3M20 15v3a2 2 0 01-2 2h-3M9 20H6a2 2 0 01-2-2v-3" />
-                  {scanOn && <path className="vline" d="M7 12h10" />}
-                  {payload && !scanOn && !warns.length && <path key="g" className="vmark" d="M8 12.5l2.7 2.7L16.5 9.5" pathLength="1" />}
-                  {payload && !scanOn && warns.length > 0 && <path key="b" className="vmark" d="M12 8v5M12 16.5v.01" pathLength="1" />}
-                </svg>
-                <span className="sr">{scanOn ? "scanning" : label.toLowerCase()}</span>
-                <Board text={label} busy={scanOn} />
+                style={vars({ "--sc": payload && !scanOn ? score : 0 })}
+                className={`verdict ${!payload ? "idle" : scanOn ? "testing" : grade.tone} ${phase === "settle" ? "settle" : ""}`}>
+                <span className="gauge" aria-hidden="true">
+                  <svg viewBox="0 0 44 44" width="56" height="56">
+                    <circle className="g-track" cx="22" cy="22" r="16" />
+                    {Array.from({ length: 24 }, (_, i) => (
+                      <line key={i} className={`g-tick ${payload && !scanOn && ((i + 1) / 24) * 100 <= score ? "on" : ""}`}
+                        style={vars({ "--i": i })} x1="22" y1="1.5" x2="22" y2="3.5" transform={`rotate(${i * 15} 22 22)`} />
+                    ))}
+                    <circle className="g-arc" cx="22" cy="22" r="16" pathLength="100" />
+                  </svg>
+                  <svg className="g-ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path className="brk" d="M4 9V6a2 2 0 012-2h3M15 4h3a2 2 0 012 2v3M20 15v3a2 2 0 01-2 2h-3M9 20H6a2 2 0 01-2-2v-3" />
+                    {scanOn && <path className="vline" d="M7 12h10" />}
+                    {payload && !scanOn && score >= 70 && <path key="g" className="vmark" d="M8 12.5l2.7 2.7L16.5 9.5" pathLength="1" />}
+                    {payload && !scanOn && score < 70 && <path key="b" className="vmark" d="M12 8v5M12 16.5v.01" pathLength="1" />}
+                  </svg>
+                </span>
+
+                <span className="sr">{!payload ? "waiting" : scanOn ? "scanning" : `scan readability ${score} percent, ${grade.name}`}</span>
+
+                <span className="vtxt" aria-hidden="true">
+                  <small>Scan readability</small>
+                  <b>{!payload ? "—" : scanOn ? "··" : <>{shown}<i>%</i></>}</b>
+                  <span className="segs">
+                    {Array.from({ length: 10 }, (_, i) => (
+                      <i key={i} style={vars({ "--i": i })} className={payload && !scanOn && score > i * 10 ? "on" : ""} />
+                    ))}
+                  </span>
+                </span>
               </button>
               {payload && (
                 <span className={`ratio ${contrast >= 4 ? "ok" : "low"}`} title="Contrast between the code and its background. 4:1 or higher scans reliably.">
@@ -871,6 +1016,8 @@ export default function App() {
           </div>
         </aside>
       </div>
+
+      {intro !== "gone" && <Intro onReveal={() => setIntro("reveal")} onDone={() => setIntro("gone")} />}
     </div>
   );
 }
