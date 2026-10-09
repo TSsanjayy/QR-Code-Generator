@@ -1,0 +1,13 @@
+/* ---------- decode test (Content tab) ---------- */
+.checks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.checks li { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); font-size: 12px; font-weight: 500; animation: pop .35s var(--press) both; }
+.checks li i { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--mute); }
+.checks li.ok i { background: var(--ok); }
+.checks li.no { border-color: color-mix(in srgb, var(--bad) 55%, var(--line)); color: var(--bad); }
+.checks li.no i { background: var(--bad); border-radius: 2px; }
+.checks li.wait { grid-column: 1 / -1; color: var(--mute); }
+.checks li.wait i { animation: peekdot 1s ease-in-out infinite; }
+.fixbtn { align-self: flex-start; border-color: var(--acc); color: var(--acc); }
+
+/* grade next to the live score */
+.vtxt small em { color: var(--vc); }

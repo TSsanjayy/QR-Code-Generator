@@ -1,47 +1,31 @@
-/* =========================================================
-   VERDICT PILL: simple and clean
-   own class names (.vd*), so nothing in App.css clashes
-   ========================================================= */
+/* Readability pill: import this AFTER App.css so it layers on top.
+   (SVG ticks keep their rotate() attribute, so these animate stroke only.) */
 
-.vd {
-  --vc: var(--mute);
-  display: inline-flex; align-items: center; gap: 10px;
-  min-width: 172px; max-width: 100%; padding: 9px 20px 9px 12px;
-  border: 1px solid var(--vc); border-radius: 999px;
-  background: color-mix(in srgb, var(--vc) 8%, var(--panel));
-  color: var(--ink); font: 600 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase;
-  cursor: pointer;
-  transition: border-color .3s, background .3s, transform .14s var(--press);
+/* while scanning: a bright tick chases around the dial */
+.verdict.testing .g-tick { animation: tickchase 1s linear infinite; animation-delay: calc(var(--i) * 41.6ms); }
+@keyframes tickchase { 0%, 22%, 100% { stroke: var(--line); stroke-width: 1.2; } 6% { stroke: var(--acc); stroke-width: 2.6; } }
+
+/* result lands: lit ticks flare in sequence, the number pops, the pill pulses once */
+.verdict.settle .g-tick.on { animation: tickflare .5s var(--ease) both; animation-delay: calc(var(--i) * 20ms); }
+@keyframes tickflare { 0% { stroke-width: 1.2; } 40% { stroke-width: 3; } 100% { stroke-width: 1.2; } }
+.verdict.settle .vtxt b { animation: numpop .6s var(--press) both; }
+@keyframes numpop { 0% { transform: scale(.85); } 100% { transform: none; } }
+
+/* healthy codes breathe softly so the pill feels alive without nagging */
+.verdict.good:not(.testing):not(.settle) { animation: vglow 3.2s ease-in-out infinite; }
+@keyframes vglow { 50% { box-shadow: inset 0 1px 0 var(--key-hi), 0 12px 32px -12px color-mix(in srgb, var(--vc) 80%, transparent); } }
+
+/* warnings: attached to the pill, staggered in, with a single pulse on the "!" */
+.warns { margin-top: -4px; }
+.warns li { animation: warnin .4s var(--ease) both; animation-delay: calc(var(--n, 0) * 70ms); border-radius: 0 4px 4px 0; }
+.warns li::before { display: inline-block; animation: warnbang .7s var(--press) .2s both; }
+@keyframes warnin { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+@keyframes warnbang { 0% { transform: scale(.4); } 60% { transform: scale(1.4); } 100% { transform: none; } }
+
+/* contrast chip ticks over when the ratio changes */
+.ratio b { display: inline-block; transition: color .25s; }
+.ratio:hover b { transform: translateY(-1px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .verdict.good { animation: none !important; }
 }
-.vd:hover:not(:disabled) { transform: translateY(-1px); }
-.vd:active:not(:disabled) { transform: translateY(1px) scale(.99); }
-.vd.good { --vc: var(--ok); }
-.vd.bad { --vc: var(--warn); }
-.vd.testing { --vc: var(--acc); cursor: progress; }
-.vd.idle { border-style: dashed; cursor: default; }
-
-/* one soft pulse when the result lands */
-.vd.settle { animation: vd-settle .9s var(--ease); }
-@keyframes vd-settle { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--vc) 40%, transparent); } to { box-shadow: 0 0 0 12px transparent; } }
-
-/* ---------- icon ---------- */
-.vd-i { flex-shrink: 0; width: 20px; height: 20px; overflow: visible; fill: none; stroke: var(--vc); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: stroke .3s; }
-.vd-i .trk { opacity: .22; }
-.vd-i .arc { stroke-dasharray: 1; stroke-dashoffset: 1; transform: rotate(-90deg); transform-box: fill-box; transform-origin: center; }
-.vd-i .mk { stroke-dasharray: 1; stroke-dashoffset: 1; }
-
-/* scanning: a short arc travels around the ring */
-.vd.testing .arc { stroke-dasharray: .26 .74; stroke-dashoffset: 0; animation: vd-spin .85s linear infinite; }
-@keyframes vd-spin { from { transform: rotate(-90deg); } to { transform: rotate(270deg); } }
-
-/* result: the ring closes, then the mark is drawn */
-.vd.good .arc, .vd.bad .arc { stroke-dashoffset: 0; animation: vd-ring .55s var(--ease) both; }
-.vd.good .mk, .vd.bad .mk { animation: vd-mark .4s var(--ease) .32s forwards; }
-@keyframes vd-ring { from { stroke-dashoffset: 1; } }
-@keyframes vd-mark { to { stroke-dashoffset: 0; } }
-
-/* ---------- label ---------- */
-.vd-t { color: var(--vc); white-space: nowrap; animation: vd-rise .38s var(--ease) both; transition: color .3s; }
-@keyframes vd-rise { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
-
-@media (max-width: 520px) { .vd { min-width: 0; letter-spacing: .08em; } }

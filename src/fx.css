@@ -1,0 +1,59 @@
+/* Reaction overlay on the QR frame. Elements are mounted fresh per change (keyed), so animations replay. */
+.fx { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.fx > * { display: none; text-decoration: none; }
+
+/* shockwave: colour, dot/corner, logo, gradient, presets */
+.fx :is(.ring) { position: absolute; left: 50%; top: 50%; width: 60%; aspect-ratio: 1; margin: -30% 0 0 -30%; border-radius: 50%; border: 2px solid var(--fc);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--fc) 60%, transparent), inset 0 0 24px color-mix(in srgb, var(--fc) 40%, transparent); animation: fxring .75s var(--ease) both; }
+.fx-morph .ring, .fx-color .ring, .fx-stamp .ring, .fx-wash .ring, .fx-skin .ring { display: block; }
+@keyframes fxring { from { opacity: .9; transform: scale(.2); } to { opacity: 0; transform: scale(2.1); } }
+
+/* read line: typing, type switch */
+.fx .line { position: absolute; left: 18px; right: 18px; top: 18px; height: 2px; background: var(--fc); box-shadow: 0 0 14px 2px color-mix(in srgb, var(--fc) 55%, transparent); animation: fxline .45s cubic-bezier(.6, 0, .4, 1) both; }
+.fx-data .line, .fx-flip .line { display: block; }
+@keyframes fxline { 0% { top: 18px; opacity: 0; } 15%, 85% { opacity: 1; } 100% { top: calc(100% - 20px); opacity: 0; } }
+
+/* light band: gradient toggle, presets */
+.fx .wash { position: absolute; inset: 18px; border-radius: 8px; background: linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--fc) 40%, transparent) 50%, transparent 65%); background-size: 250% 100%; animation: fxwash .8s var(--ease) both; }
+.fx-wash .wash, .fx-skin .wash { display: block; }
+@keyframes fxwash { from { background-position: 120% 0; } to { background-position: -60% 0; } }
+
+/* corner brackets fly in: error correction */
+.fx .c { position: absolute; width: 22px; height: 22px; border: 0 solid var(--fc); filter: drop-shadow(0 0 6px var(--fc)); animation: fxbolt 1.2s var(--ease) both; }
+.fx-shield .c { display: block; }
+.fx .c.tl { top: 6px; left: 6px; border-width: 3px 0 0 3px; --tx: -18px; --ty: -18px; }
+.fx .c.tr { top: 6px; right: 6px; border-width: 3px 3px 0 0; --tx: 18px; --ty: -18px; }
+.fx .c.bl { bottom: 6px; left: 6px; border-width: 0 0 3px 3px; --tx: -18px; --ty: 18px; }
+.fx .c.br { bottom: 6px; right: 6px; border-width: 0 3px 3px 0; --tx: 18px; --ty: 18px; }
+@keyframes fxbolt { 0% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(1.6); } 30%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+
+/* dimension lines: size */
+.fx .dim { position: absolute; background: var(--fc); animation: fxdim .9s var(--ease) both; }
+.fx-size .dim { display: block; }
+.fx .dim.h { left: 18px; right: 18px; top: -10px; height: 1px; transform-origin: center; }
+.fx .dim.v { top: 18px; bottom: 18px; right: -10px; width: 1px; transform-origin: center; }
+.fx .dim::before, .fx .dim::after { content: ""; position: absolute; background: var(--fc); }
+.fx .dim.h::before, .fx .dim.h::after { top: -4px; width: 1px; height: 9px; }
+.fx .dim.h::before { left: 0; } .fx .dim.h::after { right: 0; }
+.fx .dim.v::before, .fx .dim.v::after { left: -4px; height: 1px; width: 9px; }
+.fx .dim.v::before { top: 0; } .fx .dim.v::after { bottom: 0; }
+@keyframes fxdim { 0% { opacity: 0; transform: scale(.6); } 20%, 80% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+
+/* quiet zone: margin (outer box = canvas edge, inner box = where the data starts) */
+.fx .qz { position: absolute; border: 1px dashed var(--fc); animation: fxqz 1.2s var(--ease) both; }
+.fx-margin .qz { display: block; }
+.fx .qz.o { inset: 34px; }
+.fx .qz.n { inset: calc(34px + (100% - 68px) * var(--mg)); background: color-mix(in srgb, var(--fc) 10%, transparent); }
+@keyframes fxqz { 0% { opacity: 0; } 15%, 70% { opacity: 1; } 100% { opacity: 0; } }
+
+/* callout that names the change */
+.callout { position: absolute; z-index: 6; top: -14px; right: -4px; padding: 6px 10px; border-radius: 6px; background: var(--ink); color: var(--panel); font: 500 11px/1 var(--mono); white-space: nowrap; pointer-events: none;
+  box-shadow: 0 10px 20px -10px rgba(0,0,0,.5); transform-origin: right bottom; animation: calloutpop 1.5s var(--ease) both; }
+.callout::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: var(--acc); }
+@keyframes calloutpop { 0% { opacity: 0; transform: translateY(8px) scale(.8); } 12%, 80% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-4px); } }
+
+/* numbers and raw data re-type themselves when they change (their elements are keyed in App.tsx) */
+.stats dd, .ratio b { animation: ddin .35s var(--ease) both; }
+@keyframes ddin { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.raw code { animation: rawin .5s steps(24, end) both; }
+@keyframes rawin { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }

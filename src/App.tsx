@@ -2,7 +2,13 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { flushSync } from "react-dom";
 import QRCodeStyling from "qr-code-styling";
 import { buildPayload, validate, emptyFields, type QRType, type Fields } from "./utils/payload";
+import { Intro } from "./Intro";
+import { runProbe, type Check } from "./utils/readability";
+import { useFx, FxLayer } from "./fx";
 import "./App.css";
+import "./fx.css";
+import "./verdict.css";
+import "./readability.css";
 
 /* =========================================================
    TYPES & DATA
@@ -188,155 +194,6 @@ function useTween(target: number) {
 }
 
 /* =========================================================
-   TITLE PAGE · floating 3D scan card → modules dissolve
-   ========================================================= */
-
-const QN = 21;
-const QR_CELLS = (() => {
-  const out: { on: boolean; eye: boolean; r: number; dx: number; dy: number; dz: number }[] = [];
-  for (let i = 0; i < QN * QN; i++) {
-    const r = Math.floor(i / QN), c = i % QN;
-    const inF = (r < 7 && c < 7) || (r < 7 && c > 13) || (r > 13 && c < 7);
-    let on = false, eye = false;
-    if (inF) {
-      const rr = r > 13 ? r - 14 : r, cc = c > 13 ? c - 14 : c;
-      const ring = rr === 0 || rr === 6 || cc === 0 || cc === 6;
-      const core = rr >= 2 && rr <= 4 && cc >= 2 && cc <= 4;
-      on = ring || core; eye = core;
-    } else {
-      const sep = (r < 8 && c < 8) || (r < 8 && c > 12) || (r > 12 && c < 8);
-      const h = Math.imul(i + 11, 73856093) ^ Math.imul(i * i + 5, 19349663);
-      on = !sep && ((h >>> 4) % 9) < 4;
-    }
-    const h2 = Math.imul(i + 3, 83492791) ^ (i << 7);
-    out.push({ on, eye, r, dz: 120 + ((h2 >>> 3) % 320), dx: ((h2 >>> 7) % 260) - 130, dy: ((h2 >>> 11) % 260) - 130 });
-  }
-  return out;
-})();
-
-const COLS = 16, ROWS = 10;
-const DISS = Array.from({ length: COLS * ROWS }, (_, i) => ({
-  cx: ((i % COLS) + 0.5) / COLS,
-  cy: (Math.floor(i / COLS) + 0.5) / ROWS,
-  j: ((Math.imul(i + 1, 2654435761) >>> 8) % 100) / 100,
-}));
-
-/* ---------- title page: floating 3D scan card → the screen dissolves into modules ---------- */
-function Intro({ onReveal, onDone }: { onReveal: () => void; onDone: () => void }) {
-  const root = useRef<HTMLDivElement>(null);
-  const btn = useRef<HTMLButtonElement>(null);
-  const going = useRef(false);
-  const timers = useRef<number[]>([]);
-  const [leaving, setLeaving] = useState(false);
-  const [origin, setOrigin] = useState({ x: 0.3, y: 0.7 });
-  const pct = useTween(98);
-
-  const enter = () => {
-    if (going.current) return;
-    going.current = true;
-    const r = btn.current?.getBoundingClientRect();
-    if (r) setOrigin({ x: (r.left + r.width / 2) / window.innerWidth, y: (r.top + r.height / 2) / window.innerHeight });
-    setLeaving(true);
-    timers.current = [window.setTimeout(onReveal, 450), window.setTimeout(onDone, 2000)];
-  };
-
-  useEffect(() => {
-    btn.current?.focus({ preventScroll: true });
-    const key = (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); enter(); } };
-    window.addEventListener("keydown", key);
-    return () => { window.removeEventListener("keydown", key); timers.current.forEach((id) => window.clearTimeout(id)); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const move = (e: React.PointerEvent) => {
-    const el = root.current;
-    if (!el) return;
-    const x = e.clientX / window.innerWidth, y = e.clientY / window.innerHeight;
-    el.style.setProperty("--px", String((x - 0.5) * 2));
-    el.style.setProperty("--py", String((y - 0.5) * 2));
-    el.style.setProperty("--mx", `${e.clientX}px`);
-    el.style.setProperty("--my", `${e.clientY}px`);
-    el.style.setProperty("--gx", `${x * 100}%`);
-    el.style.setProperty("--gy", `${y * 100}%`);
-  };
-  const magnet = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const b = e.currentTarget, r = b.getBoundingClientRect();
-    b.style.setProperty("--bx", `${(e.clientX - (r.left + r.width / 2)) * 0.18}px`);
-    b.style.setProperty("--by", `${(e.clientY - (r.top + r.height / 2)) * 0.28}px`);
-  };
-  const unmagnet = (e: React.PointerEvent<HTMLButtonElement>) => {
-    e.currentTarget.style.setProperty("--bx", "0px");
-    e.currentTarget.style.setProperty("--by", "0px");
-  };
-
-  return (
-    <div ref={root} className={`intro ${leaving ? "leaving" : ""}`} onPointerMove={move} onClick={enter}>
-      <div className="i-cells" aria-hidden="true">
-        {DISS.map((c, i) => {
-          const d = Math.hypot((c.cx - origin.x) * 1.6, c.cy - origin.y) / 1.9;
-          return <i key={i} style={vars({ "--dl": `${(d * 0.7 + c.j * 0.12).toFixed(3)}s` })} />;
-        })}
-      </div>
-      <div className="i-spot" aria-hidden="true" />
-      <div className="i-grain" aria-hidden="true" />
-
-      <header className="i-top">
-        <span className="i-logo"><i />modul</span>
-        <span className="i-ver">QR studio · v2</span>
-      </header>
-
-      <div className="i-main">
-        <div className="i-copy">
-          <span className="i-tag" style={vars({ "--n": 0 })}><i />Scan-tested before you ship</span>
-          <h1 style={vars({ "--n": 1 })}>QR codes,<br /><em>engineered</em> to scan.</h1>
-          <p style={vars({ "--n": 2 })}>Style every module, then watch live readability, contrast and density update as you design.</p>
-          <div className="i-cta" style={vars({ "--n": 3 })}>
-            <button ref={btn} className="i-btn" onPointerMove={magnet} onPointerLeave={unmagnet}>
-              <span>Enter studio</span>
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-            </button>
-            <kbd>↵ Enter</kbd>
-            <span className="i-anywhere">or click anywhere</span>
-          </div>
-          <ul className="i-meta" style={vars({ "--n": 4 })}>
-            <li><b>5</b>content types</li>
-            <li><b>3</b>export formats</li>
-            <li><b>Live</b>readability score</li>
-          </ul>
-        </div>
-
-        <div className="i-stage" aria-hidden="true">
-          <div className="i-zoom">
-            <div className="i-card">
-              <div className="plate p-glow" />
-              <div className="plate p-qr">
-                <div className="qgrid">
-                  {QR_CELLS.map((c, i) => (
-                    <i key={i} className={`${c.on ? "on" : ""} ${c.eye ? "eye" : ""}`}
-                      style={vars({ "--r": c.r, "--dx": `${c.dx}px`, "--dy": `${c.dy}px`, "--dz": `${c.dz}px` })} />
-                  ))}
-                </div>
-                <b className="qbeam" />
-                <span className="qc tl" /><span className="qc tr" /><span className="qc bl" /><span className="qc br" />
-              </div>
-              <div className="plate p-glass" />
-
-              <div className="chip c1">
-                <small>Scan readability</small>
-                <b>{pct}<i>%</i></b>
-                <span className="cbar"><i style={{ width: `${pct}%` }} /></span>
-              </div>
-              <div className="chip c2"><small>Error fix</small><b>H · 30%</b></div>
-              <div className="chip c3"><i /> Scan passed</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* =========================================================
    APP
    ========================================================= */
 
@@ -357,6 +214,7 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [dlPhase, setDlPhase] = useState<"idle" | "busy" | "done">("idle");
   const [dlInfo, setDlInfo] = useState<{ size: string } | null>(null);
+  const [probe, setProbe] = useState<Check[] | null>(null);
   const [recOpen, setRecOpen] = useState(false);
   const [recBump, setRecBump] = useState(0);
   const [recPulse, setRecPulse] = useState(false);
@@ -392,6 +250,8 @@ export default function App() {
   const copyTimer = useRef(0);
   const qr = useRef<QRCodeStyling | null>(null);
   if (!qr.current) qr.current = new QRCodeStyling({ type: "canvas", data: " ", width: 400, height: 400 });
+  const cardRef = useRef<HTMLDivElement>(null);
+  const { fx, react } = useFx(cardRef);
 
   /* ---------- derived ---------- */
   const v = useMemo<S>(() => (hover ? { ...s, ...hover } : s), [s, hover]); // what the preview shows
@@ -410,12 +270,16 @@ export default function App() {
   if (payload.length > 300 && v.size < 300) warns.push("Lots of data for this size");
   if (v.logo && v.ecc !== "H") warns.push("Use H error correction with a logo");
   if (v.logo && v.logoSize > 0.35) warns.push("Logo is very large");
+  if (probe && !probe[0].pass) warns.push("Doesn't decode as designed. Simplify it");
+  probe?.filter((c) => !c.pass && c.k !== "clean").slice(0, 2).forEach((c) => warns.push(`Fails when ${c.label.toLowerCase()}`));
 
   /* ---------- scan readability ---------- */
   const version = modules ? Math.max(1, Math.round((modules - 17) / 4)) : 0;
   const cm = (v.size / 300) * 2.54; // printed at 300 dpi
   const density = version <= 5 ? 0 : version <= 12 ? 1 : 2;
   const inverted = tones.some((c) => lum(c) > lum(v.bg));
+  const passed = probe ? probe.filter((c) => c.pass).length : 0;
+  const decodePct = probe ? (passed / probe.length) * 100 : null;
   const factors = [
     { k: "Contrast", w: 0.35, note: `${contrast.toFixed(1)}:1`,
       s: contrast >= 7 ? 100 : contrast >= 4 ? 80 + ((contrast - 4) / 3) * 20 : clamp(((contrast - 1) / 3) * 80) },
@@ -423,10 +287,15 @@ export default function App() {
     { k: "Margin", w: 0.15, note: `${v.margin}px`, s: clamp((v.margin / 10) * 100) },
     { k: "Density", w: 0.15, note: ["Low", "Medium", "High"][density], s: [100, 70, 40][density] },
     { k: "Error fix", w: 0.15, note: v.ecc, s: v.logo && v.ecc !== "H" ? 30 : { L: 50, M: 75, Q: 90, H: 100 }[v.ecc] },
+    ...(probe ? [{ k: "Decode", w: 0, note: `${passed}/${probe.length}`, s: decodePct as number }] : []), // display only
   ];
-  const score = payload
-    ? Math.round(clamp(factors.reduce((a, f) => a + f.s * f.w, 0) - (inverted ? 25 : 0) - (v.logo && v.logoSize > 0.35 ? 10 : 0)))
-    : 0;
+  const heur = factors.reduce((a, f) => a + f.s * f.w, 0);
+  const blended = decodePct == null ? heur : heur * 0.55 + decodePct * 0.45; // real decoding counts for 45%
+  const failed = probe ? probe.length - passed : 0;
+  let score = payload ? clamp(blended - failed * 6 - (inverted ? 25 : 0) - (v.logo && v.logoSize > 0.35 ? 10 : 0)) : 0;
+  if (probe && !probe[0].pass) score = Math.min(score, 30);
+  else if (failed > 0) score = Math.min(score, 84); // never "Excellent" while a test fails
+  score = Math.round(score);
   const grade = GRADES.find((g) => score >= g.min) ?? GRADES[3];
 
   /* ---------- scan test: runs only when asked, and always runs to the end ---------- */
@@ -495,6 +364,17 @@ export default function App() {
         }).catch(() => { /* optional */ });
       });
     }, 450);
+    return () => { alive = false; window.clearTimeout(id); };
+  }, [payload, v]);
+
+  // real decode test: debounced so sliders stay smooth; keeps the last result until the new one lands
+  useEffect(() => {
+    if (!payload || !qr.current) { setProbe(null); return; }
+    let alive = true;
+    const id = window.setTimeout(async () => {
+      const r = await runProbe(qr.current!, payload);
+      if (alive && r) setProbe(r);
+    }, 600);
     return () => { alive = false; window.clearTimeout(id); };
   }, [payload, v]);
 
@@ -572,8 +452,20 @@ export default function App() {
   };
 
   /* ---------- actions ---------- */
-  const set = <K extends keyof S>(k: K, val: S[K]) => { setS((p) => ({ ...p, [k]: val })); setPreset(null); };
-  const setField = (k: keyof Fields, val: string) => setFields((p) => ({ ...p, [k]: val }));
+  const set = <K extends keyof S>(k: K, val: S[K]) => {
+    setS((p) => ({ ...p, [k]: val })); setPreset(null);
+    const x = String(val);
+    if (k === "dot") react("morph", { label: `Dots · ${pretty(x)}` });
+    else if (k === "corner") react("morph", { label: `Corners · ${pretty(x)}` });
+    else if (k === "ecc") react("shield", { label: `Error fix · ${x} ${({ L: 7, M: 15, Q: 25, H: 30 } as Record<string, number>)[x]}%`, color: "var(--ok)" });
+    else if (k === "grad") react("wash", { label: val ? "Gradient on" : "Gradient off" });
+    else if (k === "fg" || k === "bg" || k === "g1" || k === "g2") react("color", { color: x });
+    else if (k === "size") react("size", { label: `${x}px` });
+    else if (k === "margin") react("margin", { mg: Number(val) / s.size, label: `Margin ${x}px` });
+    else if (k === "logoSize") react("size", { label: `Logo ${Math.round(Number(val) * 100)}%` });
+    else if (k === "logo") react("stamp", { label: "Logo removed" });
+  };
+  const setField = (k: keyof Fields, val: string) => { setFields((p) => ({ ...p, [k]: val })); react("data"); };
   const flash = (t: string) => {
     setNote(t);
     window.clearTimeout(noteTimer.current);
@@ -665,11 +557,13 @@ export default function App() {
       if (typeof r.result !== "string") return;
       setS((p) => ({ ...p, logo: r.result as string, ecc: "H", logoSize: Math.min(p.logoSize, 0.3) }));
       setPreset(null);
+      react("stamp", { label: "Logo added · error fix H" });
     };
     r.readAsDataURL(f);
   };
 
   const reuse = (r: Recent) => {
+    react("skin", { label: "Loaded from recent" });
     const f = { ...emptyFields };
     if (r.type === "url" || r.type === "text") f[r.type] = r.data;
     if (r.type === "email") f.email = r.data.replace("mailto:", "");
@@ -682,8 +576,24 @@ export default function App() {
   };
 
   const reset = () => {
+    react("reset", { label: "Reset" });
     setType("url"); setFields({ ...emptyFields, url: "https://example.com" });
     setS(DEFAULTS); setPreset(null); setTouched(false);
+  };
+
+  // one click that moves the score the most: safe ECC, bigger quiet zone, larger code, smaller logo, readable colours
+  const autoFix = () => {
+    react("skin", { label: "Settings improved" });
+    setS((p) => ({
+      ...p,
+      ecc: p.logo ? "H" : p.ecc === "L" || p.ecc === "M" ? "Q" : p.ecc,
+      margin: Math.max(p.margin, 10),
+      size: Math.max(p.size, 300),
+      logoSize: Math.min(p.logoSize, 0.3),
+      ...(contrast < 4 || inverted ? { fg: "#111729", bg: "#ffffff", grad: false } : {}),
+    }));
+    setPreset(null);
+    kickScan();
   };
 
   /* ---------- recent downloads ---------- */
@@ -760,9 +670,17 @@ export default function App() {
         ))}
       </ul>
 
+      <h3>Decode test <em className="gpill">{probe ? `${passed}/${probe.length}` : "…"}</em></h3>
+      <ul className="checks">
+        {probe
+          ? probe.map((c, i) => <li key={c.k} className={c.pass ? "ok" : "no"} style={vars({ "--n": i })}><i />{c.label}</li>)
+          : <li className="wait"><i />Running decode test…</li>}
+      </ul>
+      {score < 85 && <button type="button" className="plain fixbtn" onClick={autoFix}>Improve score</button>}
+
       <h3>QR details</h3>
       <dl className="stats">
-        {stats.map(([k, val], i) => <div key={k} style={vars({ "--n": i })}><dt>{k}</dt><dd>{val}</dd></div>)}
+        {stats.map(([k, val], i) => <div key={k} style={vars({ "--n": i })}><dt>{k}</dt><dd key={typeof val === "string" ? val : density}>{val}</dd></div>)}
       </dl>
 
       <h3>Quick save</h3>
@@ -775,7 +693,7 @@ export default function App() {
       </div>
 
       <h3>Raw data</h3>
-      <button type="button" className="raw" onClick={copy} title="Click to copy"><code>{raw}</code><Ico k="copy" /></button>
+      <button type="button" className="raw" onClick={copy} title="Click to copy"><code key={raw}>{raw}</code><Ico k="copy" /></button>
     </div>
   ) : (
     <p className="hint">QR details appear here once the content is valid.</p>
@@ -844,7 +762,7 @@ export default function App() {
         <nav className="rail" aria-label="QR type">
           {TYPES.map((t, i) => (
             <button key={t.v} className={type === t.v ? "on" : ""} aria-pressed={type === t.v} style={vars({ "--n": i })}
-              onClick={() => { setType(t.v); setTouched(false); setTab("content"); }}>
+              onClick={() => { setType(t.v); setTouched(false); setTab("content"); react("flip", { label: t.label }); }}>
               <svg key={type === t.v ? "on" : "off"} viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{ICONS[t.v]}</svg>
               <span>{t.label}</span>
             </button>
@@ -861,13 +779,14 @@ export default function App() {
 
           <div className="stagewrap">
             <div className={`qrframe ${scanOn ? "testing" : ""} ${result ? `res-${result.k}` : ""} ${previewing ? "pv" : ""}`} data-size={`${v.size} × ${v.size} px`}>
-              <div className={`qrcard ${payload ? "" : "stale"} ${previewing ? "preview" : ""}`}>
+              <div ref={cardRef} className={`qrcard ${payload ? "" : "stale"} ${previewing ? "preview" : ""}`}>
                 <div ref={host} className="qr" />
                 {payload && scanOn && (
                   <div className="scanfx" key={run} aria-hidden="true"><b className="beam" /></div>
                 )}
                 {!payload && <p className="fix">Complete the details to update</p>}
               </div>
+              <FxLayer fx={fx} />
 
               {result && (
                 <span key={result.n} className={`badge ${result.k}`} role="status" aria-label={result.k === "ok" ? "Scan test passed" : "Scan test found issues"}>
@@ -904,7 +823,7 @@ export default function App() {
                 <span className="sr">{!payload ? "waiting" : scanOn ? "scanning" : `scan readability ${score} percent, ${grade.name}`}</span>
 
                 <span className="vtxt" aria-hidden="true">
-                  <small>Scan readability</small>
+                  <small>Scan readability{payload && !scanOn && <em> · {grade.name}</em>}</small>
                   <b>{!payload ? "—" : scanOn ? "··" : <>{shown}<i>%</i></>}</b>
                   <span className="segs">
                     {Array.from({ length: 10 }, (_, i) => (
@@ -915,16 +834,16 @@ export default function App() {
               </button>
               {payload && (
                 <span className={`ratio ${contrast >= 4 ? "ok" : "low"}`} title="Contrast between the code and its background. 4:1 or higher scans reliably.">
-                  <b>{contrast.toFixed(1)}</b>:1 contrast
+                  <b key={contrast.toFixed(1)}>{contrast.toFixed(1)}</b>:1 contrast
                 </span>
               )}
             </div>
-            {warns.length > 0 && <ul className="warns">{warns.map((w) => <li key={w}>{w}</li>)}</ul>}
+            {warns.length > 0 && <ul className="warns">{warns.map((w, i) => <li key={w} style={vars({ "--n": i })}>{w}</li>)}</ul>}
           </div>
 
           {/* ---------- dock ---------- */}
           <div className="dock">
-            <Seg label="Format" value={fmt} options={FORMATS} onChange={setFmt} />
+            <Seg label="Format" value={fmt} options={FORMATS} onChange={(f) => { setFmt(f); react("badge", { label: `Format · ${f.toUpperCase()}` }); }} />
             <span className="sep" />
 
             <button className={`dl ${dlPhase}`} disabled={!payload} onClick={() => download()} title="Download (Ctrl/⌘ + S)">
@@ -976,7 +895,7 @@ export default function App() {
                 <div className="presets">
                   {PRESETS.map((p) => (
                     <button key={p.name} className={preset === p.name ? "on" : ""}
-                      onClick={() => { setS((o) => ({ ...o, ...p.s })); setPreset(p.name); setHover(null); }}
+                      onClick={() => { setS((o) => ({ ...o, ...p.s })); setPreset(p.name); setHover(null); react("skin", { label: `${p.name} preset`, color: p.s.g1 ?? p.s.fg }); }}
                       onMouseEnter={() => setHover(p.s)} onMouseLeave={() => setHover(null)} onFocus={() => setHover(p.s)} onBlur={() => setHover(null)}>
                       <i style={{ background: p.s.grad ? `linear-gradient(135deg, ${p.s.g1}, ${p.s.g2})` : `linear-gradient(135deg, ${p.s.bg ?? "#fff"} 50%, ${p.s.fg ?? "#000"} 50%)` }} />{p.name}
                     </button>
