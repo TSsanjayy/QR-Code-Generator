@@ -7,7 +7,7 @@ import { runProbe, type Check } from "./utils/readability";
 import { useFx, FxLayer } from "./fx";
 import "./App.css";
 import "./fx.css";
-import "./verdict.css";
+import "./Verdict.css";
 import "./readability.css";
 
 /* =========================================================
