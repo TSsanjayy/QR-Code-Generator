@@ -625,8 +625,25 @@ function Studio() {
       <div className="onscan"><Ico k="scan" /><span>When scanned<b>{onScan}</b></span></div>
 
       <div className="scorecard">
-        <div className="sc-num"><b>{shown}</b><i>%</i></div>
-        <div className="sc-meta"><span>Scan readability</span><em className={`gpill ${grade.tone}`}>{grade.name}</em></div>
+        <div className="sc-left">
+          <div className="sc-num"><b>{shown}</b><i>%</i></div>
+          <div className="sc-meta"><span>Scan readability</span><em className={`gpill ${grade.tone}`}>{grade.name}</em></div>
+        </div>
+        <div className="sc-dial" aria-hidden="true">
+          <svg viewBox="0 0 120 120" width="108" height="108">
+            <circle className="sd-tr" cx="60" cy="60" r="50" />
+            {Array.from({ length: 32 }, (_, i) => (
+              <line key={i} className={`sd-tick ${((i + 1) / 32) * 100 <= score ? "on" : ""}`}
+                style={vars({ "--i": i })}
+                x1="60" y1="7" x2="60" y2={i % 8 === 0 ? 15 : 11}
+                transform={`rotate(${i * 11.25} 60 60)`} />
+            ))}
+            <circle className="sd-arc" cx="60" cy="60" r="50" pathLength="100"
+              strokeDasharray="100" strokeDashoffset={100 - score} transform="rotate(-90 60 60)" />
+            <circle className="sd-needle" cx="60" cy="60" r="3"
+              transform={`rotate(${score * 3.6 - 90} 60 60)`} />
+          </svg>
+        </div>
       </div>
       <ul className="factors">
         {factors.map((f, i) => (

@@ -80,11 +80,19 @@
    rendered code are one layer (padding 0 removes the white border) */
 .app .qrcard { padding: 0; border-radius: 14px; box-shadow: 0 30px 70px -24px rgba(0, 0, 0, .7), 0 0 80px -20px var(--hot); }
 
-/* dotted floor that fades out toward the edges */
+/* two-tier grid (fine + coarse), centred, masked so it dissolves at the edges */
+.app .canvas { --grid-a: rgba(255, 255, 255, .045); --grid-b: rgba(255, 255, 255, .085); background: transparent; }
+.app:not(.dark) .canvas { --grid-a: rgba(5, 6, 10, .05); --grid-b: rgba(5, 6, 10, .09); }
 .app .canvas::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
-  background: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, .10) 1px, transparent 0) 0 0 / 26px 26px;
-  -webkit-mask-image: radial-gradient(ellipse 55% 50% at 50% 46%, #000, transparent 75%);
-          mask-image: radial-gradient(ellipse 55% 50% at 50% 46%, #000, transparent 75%); }
+  background-image:
+    linear-gradient(var(--grid-a) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-a) 1px, transparent 1px),
+    linear-gradient(var(--grid-b) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-b) 1px, transparent 1px);
+  background-size: 28px 28px, 28px 28px, 140px 140px, 140px 140px;
+  background-position: center center;
+  -webkit-mask-image: radial-gradient(ellipse 62% 56% at 50% 46%, #000 18%, transparent 78%);
+          mask-image: radial-gradient(ellipse 62% 56% at 50% 46%, #000 18%, transparent 78%); }
 
 /* the code floats, with a soft shadow on the floor underneath */
 .app .qrcard { animation: qfloat 6s ease-in-out infinite; }
@@ -203,3 +211,93 @@
 /* ---------- top bar: never clipped ---------- */
 .app { min-height: 100vh; }
 /* (the bar's sticky/glass rule lives in the "glass chrome" block above) */
+/* registration marks in the corners - quiet structure, like the film's ruler */
+.app .canvas::after { content: ""; position: absolute; inset: 18px; pointer-events: none; z-index: 0; opacity: .75;
+  background:
+    linear-gradient(var(--grid-b) 1px, transparent 1px) 0 0 / 16px 1px no-repeat,
+    linear-gradient(var(--grid-b) 1px, transparent 1px) 0 0 / 1px 16px no-repeat,
+    linear-gradient(var(--grid-b) 1px, transparent 1px) 100% 0 / 16px 1px no-repeat,
+    linear-gradient(var(--grid-b) 1px, transparent 1px) 100% 0 / 1px 16px no-repeat,
+    linear-gradient(var(--grid-b) 1px, transparent 1px) 0 100% / 16px 1px no-repeat,
+    linear-gradient(var(--grid-b) 1px, transparent 1px) 0 100% / 1px 16px no-repeat,
+    linear-gradient(var(--grid-b) 1px, transparent 1px) 100% 100% / 16px 1px no-repeat,
+    linear-gradient(var(--grid-b) 1px, transparent 1px) 100% 100% / 1px 16px no-repeat; }
+
+/* ---- UI tuning ---- */
+/* the code was sitting in an orange cloud: two glows were stacking.
+   keep one tight shadow, and let the accent live in the small details. */
+.app .qrcard { box-shadow: 0 24px 48px -26px rgba(0, 0, 0, .75), 0 0 0 1px rgba(255, 255, 255, .05); }
+.app .qrframe::before { opacity: .45; transform: scale(.86); }
+.app .qrframe:hover::before { opacity: .8; transform: scale(.95); }
+
+/* the segmented meters were reading neon; pull them back toward the palette */
+.app .fbar b { box-shadow: none; }
+.app .factors li .fbar b { opacity: .92; }
+
+/* callouts: annotations, not clutter */
+.app .call { padding: 8px 11px; opacity: .92; transition: opacity .3s var(--ease); }
+.app .call:hover { opacity: 1; }
+.app .call::before { opacity: .6; }
+
+/* download button: keep the accent but stop it shouting */
+.app .dl { background: linear-gradient(180deg, color-mix(in srgb, var(--hot) 78%, #fff), var(--hot)); }
+
+/* stat cards: quieter accent dash, tighter rhythm */
+.app .stats > div::before { width: 20px; opacity: .75; }
+/* =========================================================
+   ENHANCE · instrument dial, technical leaders, staged light
+   ========================================================= */
+
+/* scorecard: number on the left, a real dial on the right */
+.app .scorecard { align-items: center; gap: 18px; overflow: hidden; position: relative; }
+.app .sc-left { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.app .sc-dial { flex-shrink: 0; position: relative; }
+.app .sc-dial svg { display: block; overflow: visible; }
+.app .sd-tr { fill: none; stroke: var(--line); stroke-width: 6; }
+.app .sd-arc { fill: none; stroke: var(--hot); stroke-width: 6; stroke-linecap: round;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--hot) 60%, transparent));
+  transition: stroke-dashoffset .9s var(--ease); }
+.app .sd-tick { stroke: var(--line); stroke-width: 1.4; stroke-linecap: round;
+  transition: stroke .25s calc(var(--i) * 8ms); }
+.app .sd-tick.on { stroke: var(--hot); }
+.app .sd-needle { fill: var(--ink); filter: drop-shadow(0 0 4px var(--hot));
+  transition: transform .9s var(--ease); }
+@media (max-width: 420px) { .app .sc-dial { display: none; } }
+
+/* callouts: a real leader line that reaches the code, with a terminal dot */
+.app .call::before { width: 62px; opacity: .75;
+  background: linear-gradient(90deg, transparent, var(--hot)); }
+.app .call::after { content: ""; position: absolute; top: 50%; width: 5px; height: 5px;
+  margin-top: -2.5px; border-radius: 50%; background: var(--hot);
+  box-shadow: 0 0 8px var(--hot); }
+.app .c1::after, .app .c2::after { right: calc(100% + 62px); }
+.app .c3::after { left: calc(100% + 62px); }
+
+/* a pool of light on the stage so the code reads as lit, not pasted on */
+.app .stagewrap::before { content: ""; position: absolute; left: 50%; top: 46%;
+  width: 118%; height: 104%; transform: translate(-50%, -50%); z-index: 0; pointer-events: none;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--hot) 9%, transparent), transparent 72%);
+  filter: blur(6px); }
+.app .stagewrap > * { position: relative; z-index: 1; }
+
+/* inspector: numbered sections, auto-counted */
+.app .details { counter-reset: sec; }
+.app .details h3 { counter-increment: sec; }
+.app .details h3::before { content: "0" counter(sec); color: var(--hot); opacity: .85;
+  font: 500 10px/1 "Geist Mono", ui-monospace, monospace; letter-spacing: .1em; }
+
+/* raw data deserves to look like a terminal line */
+.app .raw { border-radius: 12px; }
+.app .raw code { letter-spacing: .01em; }
+
+/* quick-save buttons: give the format name some weight */
+.app .fsizes button b { font-weight: 600; letter-spacing: .02em; }
+.app .fsizes button span { opacity: .7; }
+
+/* the dock floats a little higher off the panel.
+   desktop-only: below 981px the dock goes static and centred, and this
+   translateX(-50%) would shove it off-centre. */
+@media (min-width: 981px) {
+  .app .dock { transform: translateX(-50%) translateY(-2px); }
+  .app .dock:hover { transform: translateX(-50%) translateY(-4px); }
+}
