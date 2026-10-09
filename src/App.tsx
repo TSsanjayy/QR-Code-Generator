@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { flushSync } from "react-dom";
 import QRCodeStyling from "qr-code-styling";
 import Lenis from "lenis";
 import { buildPayload, validate, emptyFields, type QRType, type Fields } from "./utils/payload";
@@ -623,14 +622,23 @@ function Studio() {
     rows[(i + (e.key === "ArrowDown" ? 1 : -1) + rows.length) % rows.length].focus();
   };
 
-  // theme switch: a circular wipe that grows from the button (falls back to an instant swap)
+  /* theme switch: a circular wipe blooms from the button in the NEW theme's colour,
+     then clears. Uses a real overlay rather than startViewTransition: a view
+     transition snapshots the viewport, which fights the full-bleed canvas that
+     repaints every frame and leaves a frozen old-theme image stuck on top. */
+  /* The bloom overlay is mounted ONLY while it plays and unmounts on animationend,
+     so no full-viewport element is ever left sitting over the UI between clicks. */
+  const [wiping, setWiping] = useState(false);
+  const wipeTimer = useRef(0);
   const toggleTheme = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
     const r = e.currentTarget.getBoundingClientRect();
     document.documentElement.style.setProperty("--tx", `${r.left + r.width / 2}px`);
     document.documentElement.style.setProperty("--ty", `${r.top + r.height / 2}px`);
-    if (!doc.startViewTransition || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setDark((d) => !d); return; }
-    doc.startViewTransition(() => flushSync(() => setDark((d) => !d)));
+    setDark((d) => !d);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    setWiping(true);
+    window.clearTimeout(wipeTimer.current);
+    wipeTimer.current = window.setTimeout(() => setWiping(false), 700); // safety net
   };
 
   /* =========================================================
@@ -720,6 +728,7 @@ function Studio() {
   return (
     <div ref={appRef} className={`app ${dark ? "dark" : ""} ${entered ? "in" : ""}`} style={vars({ "--hue": hue })}>
       {/* Full-bleed 3-D blocks background — matches ScrollStory canvas pixel-for-pixel */}
+      {wiping && <div className="wipe run" aria-hidden="true" onAnimationEnd={() => setWiping(false)} />}
       <canvas ref={bgCvRef} className="bg-cv" aria-hidden="true" />
       <div className="bg-vignette" aria-hidden="true" />
 

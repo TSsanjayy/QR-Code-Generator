@@ -739,3 +739,20 @@
   border-color: var(--hot);
   background: #ffffff;
 }
+/* ---------- theme wipe ----------
+   A real overlay instead of document.startViewTransition. The view-transition
+   pseudo-elements snapshot the viewport, which clashes with .bg-cv repainting
+   every frame: the old theme froze on screen and the toggle stalled. This
+   blooms a circle of the NEW background out of the button and clears. */
+/* a soft accent bloom that grows out of the button and dies. Deliberately NOT an
+   opaque disc: filling the screen with --bg blanks the studio for the duration. */
+.app .wipe { position: fixed; inset: 0; z-index: 400; pointer-events: none; opacity: 0;
+  transform-origin: var(--tx, 50%) var(--ty, 0);
+  background: radial-gradient(circle at var(--tx, 50%) var(--ty, 0), var(--hot), transparent 62%); }
+.app .wipe.run { animation: themewipe2 .58s cubic-bezier(.22, 1, .36, 1) both; pointer-events: none !important; }
+@keyframes themewipe2 {
+  from { opacity: 0; transform: scale(.18); }
+  38%  { opacity: .34; }
+  to   { opacity: 0; transform: scale(2.4); }
+}
+@media (prefers-reduced-motion: reduce) { .app .wipe.run { animation: none; } }
