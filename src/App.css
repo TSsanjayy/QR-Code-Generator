@@ -1,9 +1,11 @@
-@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif&display=swap");
-
 /* =========================================================
    QR STUDIO — technical-instrument look
    hairlines · small radii · one signal colour
+   Fonts load via <link> in index.html — no @import here.
    ========================================================= */
+
+/* ---------- shared motion curve (story + studio move alike) ---------- */
+:root { --ease: cubic-bezier(0.22, 1, 0.36, 1); }
 
 /* ---------- tokens ---------- */
 .app {
@@ -19,7 +21,6 @@
   --warn: #9a5a00;
   --bad: #c7332c;
   --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --press: cubic-bezier(0.3, 1.6, 0.5, 1);   /* tiny overshoot */
   --key-hi: rgba(255, 255, 255, 0.9);        /* lit top edge of a key */
   --key-lo: rgba(19, 19, 18, 0.07);          /* resting key shadow */
@@ -168,17 +169,7 @@
 .draw path { animation-delay: .22s; }
 
 /* ---------- verdict: an LED matrix of QR modules that spells the result ---------- */
-.vrow { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; max-width: 100%; }
-
-.verdict { --vc: var(--mute); position: relative; display: inline-flex; align-items: center; max-width: 100%; padding: 11px 16px; border: 1px solid var(--vc); border-radius: 999px; background: color-mix(in srgb, var(--vc) 8%, var(--panel)); color: var(--ink); font: inherit; cursor: pointer; transition: border-color .3s, background .3s, transform .14s var(--press); }
-.verdict:hover:not(:disabled) { transform: translateY(-1px); }
-.verdict:active:not(:disabled) { transform: translateY(1px) scale(.99); }
-.verdict.good { --vc: var(--ok); }
-.verdict.bad { --vc: var(--warn); }
-.verdict.testing { --vc: var(--acc); cursor: progress; }
-.verdict.idle { border-style: dashed; cursor: default; }
-.verdict.settle { animation: vsettle .9s var(--ease) both; }
-.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.vrow { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; max-width: 100%; }.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* contrast ratio, right beside the result */
 .ratio { display: inline-flex; align-items: baseline; gap: 5px; padding: 9px 13px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--mute); font: 500 11px/1 var(--mono); }
@@ -531,28 +522,8 @@
    height is identical on every tab (this is what made the page jump) */
 @media (max-width: 980px) {
   .ibody { min-height: 0; height: min(640px, 80vh); overflow-y: auto; }
-}
-
-/* ---------- verdict: decode ---------- */
-.verdict { overflow: hidden; min-width: 212px; justify-content: center; gap: 11px; padding: 10px 20px 10px 14px; }
-.verdict > * { position: relative; z-index: 1; }
-
-/* status colour floods the pill left to right when the result lands */
-.verdict::before { content: ""; position: absolute; inset: 0; z-index: 0; background: var(--vc); opacity: 0; transform: scaleX(0); transform-origin: left; pointer-events: none; }
-.verdict.settle::before { animation: vfill 1.05s var(--ease) both; }
-
-/* light streak while scanning */
-.verdict::after { content: ""; position: absolute; inset: 0; z-index: 0; opacity: 0; pointer-events: none;
-  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--acc) 30%, transparent) 50%, transparent 70%); }
-.verdict.testing::after { opacity: 1; animation: vstreak .9s linear infinite; }
-
-/* icon: the viewfinder that breathes while scanning, then draws a check or "!" */
-.verdict.testing .brk { transform-origin: 12px 12px; animation: brkpulse .6s ease-in-out infinite; }
-.vline { animation: vline .55s ease-in-out infinite alternate; }
-.vmark { stroke-dasharray: 1; stroke-dashoffset: 1; transform-box: fill-box; transform-origin: center; animation: drawn .5s var(--ease) .1s forwards; }
-.verdict.bad .vmark { animation: drawn .4s var(--ease) .1s forwards, wobble .6s .5s both; }
-
-@keyframes brkpulse { 50% { transform: scale(.78); } }
+}.vline { animation: vline .55s ease-in-out infinite alternate; }
+.vmark { stroke-dasharray: 1; stroke-dashoffset: 1; transform-box: fill-box; transform-origin: center; animation: drawn .5s var(--ease) .1s forwards; }@keyframes brkpulse { 50% { transform: scale(.78); } }
 @keyframes vline { from { transform: translateY(-5px); } to { transform: translateY(5px); } }
 @keyframes vfill { 0% { opacity: .2; transform: scaleX(0); } 55% { opacity: .2; transform: scaleX(1); } 100% { opacity: 0; transform: scaleX(1); } }
 @keyframes vstreak { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
@@ -579,22 +550,7 @@
 html, body, #root { margin: 0; padding: 0; width: 100%; height: 100%; max-width: none; }
 html { scrollbar-gutter: auto; background: #fbfbf9; }
 html:has(.app.dark) { background: #161615; color-scheme: dark; }
-@media (min-width: 981px) { html, body { overflow: hidden; } }
-
-/* =========================================================
-   READABILITY VERDICT
-   ========================================================= */
-.verdict { min-width: 288px; gap: 12px; padding: 9px 18px 9px 14px; border-radius: 14px; }
-.verdict.good { --vc: var(--ok); }
-.verdict.mid { --vc: var(--warn); }
-.verdict.bad { --vc: var(--bad); }
-
-.vtxt { display: flex; flex-direction: column; gap: 5px; text-align: left; }
-.vtxt small { color: var(--mute); font: 500 9.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
-.vtxt b { min-width: 4.4ch; font: 600 20px/1 var(--mono); font-variant-numeric: tabular-nums; }
-.vtxt b i { margin-left: 2px; color: var(--mute); font-size: 11px; font-weight: 500; }
-
-/* breakdown in the Content tab */
+@media (min-width: 981px) { html, body { overflow: hidden; } }/* breakdown in the Content tab */
 .gpill { margin-left: 4px; padding: 2px 6px; border-radius: 3px; background: var(--paper); font: 600 10px/1.2 var(--mono); letter-spacing: 0; }
 .gpill.good { color: var(--ok); }
 .gpill.mid { color: var(--warn); }
@@ -646,55 +602,5 @@ html:has(.app.dark) { background: #161615; color-scheme: dark; }
 .itabs button.on { font-weight: 600; }
 
 @media (max-width: 520px) {
-  .verdict { min-width: 0; width: 100%; gap: 9px; padding: 9px 12px; }
   .factors li { grid-template-columns: 62px 1fr 58px; }
 }
-
-/* hold the studio's entrance animations until the title page opens */
-.app.held *, .app.held *::before, .app.held *::after { animation-play-state: paused !important; }
-/* …but the title page lives inside .app, so its own motion keeps running */
-.app.held .intro, .app.held .intro::before, .app.held .intro::after,
-.app.held .intro *, .app.held .intro *::before, .app.held .intro *::after { animation-play-state: running !important; }
-
-/* ---------- readability gauge ---------- */
-.verdict { min-width: 250px; gap: 14px; padding: 8px 22px 8px 10px; border-radius: 18px; }
-.gauge { position: relative; flex-shrink: 0; display: grid; place-items: center; width: 56px; height: 56px; }
-.gauge svg { grid-area: 1 / 1; overflow: visible; }
-.g-track { fill: none; stroke: var(--line); stroke-width: 3; }
-.g-tick { stroke: var(--line); stroke-width: 1.2; stroke-linecap: round; transition: stroke .25s calc(var(--i) * 22ms); }
-.g-tick.on { stroke: var(--vc); }
-.g-arc { fill: none; stroke: var(--vc); stroke-width: 3; stroke-linecap: round;
-  stroke-dasharray: 100 100; stroke-dashoffset: calc(100 - var(--sc, 0));
-  transform: rotate(-90deg); transform-origin: 22px 22px;
-  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--vc) 55%, transparent));
-  transition: stroke-dashoffset 1.1s var(--ease), stroke .3s; }
-.verdict.testing .g-arc { stroke-dasharray: 22 78; stroke-dashoffset: 0; transition: none; animation: garc .8s linear infinite; }
-@keyframes garc { from { transform: rotate(-90deg); } to { transform: rotate(270deg); } }
-.g-ico { color: var(--vc); transition: color .3s; }
-.verdict.settle .gauge::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; border: 2px solid var(--vc); animation: gping .9s var(--ease) both; }
-@keyframes gping { from { opacity: .8; transform: scale(.8); } to { opacity: 0; transform: scale(1.7); } }
-.verdict.settle .gauge { animation: gpop .6s var(--press); }
-@keyframes gpop { 40% { transform: scale(1.12); } }
-
-.vtxt b { font-size: 26px; letter-spacing: -.02em; }
-.vtxt b i { margin-left: 1px; font-size: 14px; }
-.segs { display: flex; gap: 3px; }
-.segs i { width: 12px; height: 4px; border-radius: 1px; background: var(--line); transition: background .2s calc(var(--i) * 60ms), transform .3s calc(var(--i) * 60ms) var(--press); }
-.segs i.on { background: var(--vc); transform: scaleY(1.5); }
-.verdict.testing .segs i { animation: segscan .55s ease-in-out infinite alternate; animation-delay: calc(var(--i) * 55ms); }
-@keyframes segscan { from { background: var(--line); } to { background: var(--acc); transform: scaleY(1.6); } }
-@media (max-width: 520px) { .verdict { min-width: 0; } }
-
-/* keep the studio paused behind the title page, but never the title page itself */
-.app.held *, .app.held *::before, .app.held *::after { animation-play-state: paused !important; }
-.app.held .intro, .app.held .intro *, .app.held .intro *::before, .app.held .intro *::after { animation-play-state: running !important; }
-
-/* =========================================================
-   READABILITY PILL · glass finish
-   ========================================================= */
-.verdict { background: linear-gradient(180deg, color-mix(in srgb, var(--vc) 10%, var(--panel)), color-mix(in srgb, var(--vc) 4%, var(--panel)));
-  box-shadow: inset 0 1px 0 var(--key-hi), 0 10px 28px -14px color-mix(in srgb, var(--vc) 70%, transparent); }
-.verdict.settle::after { opacity: 1; animation: vstreak .9s var(--ease) both; }
-.vtxt b { background: linear-gradient(180deg, var(--ink), color-mix(in srgb, var(--ink) 60%, var(--vc))); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.vtxt b i { -webkit-text-fill-color: var(--mute); }
-

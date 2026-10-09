@@ -1,0 +1,205 @@
+/* =========================================================
+   STUDIO THEME · final layer
+   Imported last, so it wins over App.css and polish.css.
+   Palette is taken from the scroll film: same --hue, same
+   --hot, same glow / vignette / grain.
+   ========================================================= */
+
+/* ---------- tokens ---------- */
+.app, .app.dark {
+  --bg: #05060a; --panel: rgba(255, 255, 255, .03); --panel-2: rgba(255, 255, 255, .06);
+  --line: rgba(255, 255, 255, .1); --ink: #f2f2f5; --mute: #8d8e99;
+  --hue: 24; --hot: hsl(var(--hue) 100% 62%);
+  /* --accent is unused; --acc is what App.css reads (47x), so point it at the same hue */
+  --accent: var(--hot); --acc: var(--hot); --acc-ink: #fff;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  background: var(--bg); color: var(--ink);
+  font-family: "Geist", system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+}
+/* light mode = the film's warm cube white, not stark white */
+.app:not(.dark) {
+  --bg: #f4f2ea; --panel: rgba(5, 6, 10, .03); --panel-2: rgba(5, 6, 10, .06);
+  --line: rgba(5, 6, 10, .12); --ink: #0b0b10; --mute: #6b6c76;
+  --hot: hsl(18 92% 52%);
+}
+
+/* ---------- atmosphere ---------- */
+.app { position: relative; isolation: isolate; }
+.app::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(60vmax 45vmax at 68% 52%, hsl(var(--hue) 95% 55% / .10), transparent 70%),
+    radial-gradient(50vmax 30vmax at 50% 112%, hsl(var(--hue) 95% 50% / .14), transparent 70%); }
+.app.dark::after, .app:not(.dark)::after { content: ""; position: fixed; inset: 0; z-index: 50; pointer-events: none;
+  opacity: .10; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+
+/* ---------- surfaces: translucent, hairline borders ---------- */
+.app .bar, .app .rail, .app .inspector { background: transparent; border-color: var(--line); }
+.app .canvas { background: transparent; }
+.app .inspector, .app .rail { backdrop-filter: blur(14px); background: color-mix(in srgb, var(--bg) 70%, transparent); }
+.app .stats > div, .app .fsizes button, .app .raw, .app .onscan, .app .tgrid button,
+.app .presets button, .app .swatch, .app .toggle, .app .inwrap, .app .drop {
+  background: var(--panel); border: 1px solid var(--line); color: var(--ink); border-radius: 12px; }
+.app .tgrid button.on, .app .presets button.on { border-color: var(--hot);
+  background: color-mix(in srgb, var(--hot) 12%, transparent); box-shadow: 0 0 24px -8px var(--hot); }
+.app .inwrap:focus-within { border-color: var(--hot); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hot) 22%, transparent); }
+.app input { color: var(--ink); font-family: "Geist", sans-serif; }
+
+/* ---------- type: serif wordmark, mono labels ---------- */
+.app .wm { font: 400 27px/1 "Instrument Serif", Georgia, serif; letter-spacing: -.01em; }
+.app .brand em { padding: 3px 9px; border: 1px solid var(--line); border-radius: 99px; color: var(--mute);
+  font: 500 10px/1.2 "Geist Mono", ui-monospace, monospace; letter-spacing: .06em; text-transform: uppercase; }
+.app .tl, .app .details h3, .app .stats dt, .app .rail span, .app .rh h3, .app .rhead h3,
+.app .field > span, .app .seg + span {
+  font-family: "Geist Mono", ui-monospace, monospace; letter-spacing: .16em; text-transform: uppercase; color: var(--mute); }
+.app .itabs button.on { color: var(--ink); }
+
+/* ---------- buttons: pills like the film's nav ---------- */
+.app .plain { border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+  border-radius: 99px; backdrop-filter: blur(10px);
+  transition: border-color .25s var(--ease), background .25s var(--ease), transform .25s var(--ease); }
+.app .plain:hover:not(:disabled) { border-color: var(--hot); background: var(--panel-2); transform: translateY(-1px); }
+.app .dl { background: linear-gradient(180deg, color-mix(in srgb, var(--hot) 86%, #fff), var(--hot)); color: #130905;
+  border-radius: 14px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 18px 40px -14px var(--hot); }
+.app .dock { background: color-mix(in srgb, var(--bg) 60%, transparent); border: 1px solid var(--line); border-radius: 18px; }
+.app .seg { background: var(--panel); border: 1px solid var(--line); border-radius: 99px; }
+
+/* ---------- accents use one colour: --hot ---------- */
+/* the inset shadow replaces App.css's ::before bar, so switch that off to avoid
+   two accent edges stacked on the same side; keep polish.css's glow */
+.app .rail button.on::before { display: none; }
+.app .rail button.on { color: var(--hot); background: color-mix(in srgb, var(--hot) 8%, transparent);
+  box-shadow: inset 3px 0 0 var(--hot), 0 0 40px -12px color-mix(in srgb, var(--hot) 50%, transparent); }
+.app .itabs button.on::after, .app .slide input { accent-color: var(--hot); }
+.app .recpop { background: color-mix(in srgb, var(--bg) 88%, #000); border: 1px solid var(--line);
+  border-radius: 16px; backdrop-filter: blur(18px); }
+.app .cnt { background: var(--hot); color: #130905; }
+
+/* ---------- canvas grid + code card ----------
+   the card takes its colour inline from v.bg, so the old white frame and the
+   rendered code are one layer (padding 0 removes the white border) */
+.app .qrcard { padding: 0; border-radius: 14px; box-shadow: 0 30px 70px -24px rgba(0, 0, 0, .7), 0 0 80px -20px var(--hot); }
+
+/* dotted floor that fades out toward the edges */
+.app .canvas::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, .10) 1px, transparent 0) 0 0 / 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 55% 50% at 50% 46%, #000, transparent 75%);
+          mask-image: radial-gradient(ellipse 55% 50% at 50% 46%, #000, transparent 75%); }
+
+/* the code floats, with a soft shadow on the floor underneath */
+.app .qrcard { animation: qfloat 6s ease-in-out infinite; }
+@keyframes qfloat { 50% { transform: translateY(-8px); } }
+.app .qrframe::after { content: ""; position: absolute; left: 12%; right: 12%; bottom: -34px; height: 26px; z-index: -1;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, .65), transparent); filter: blur(8px);
+  animation: qshadow 6s ease-in-out infinite; }
+@keyframes qshadow { 50% { transform: scale(.88); opacity: .6; } }
+
+/* ---------- floating callouts ---------- */
+.app .call { position: absolute; display: flex; flex-direction: column; gap: 4px; padding: 9px 13px; border-radius: 12px;
+  background: color-mix(in srgb, var(--bg) 60%, transparent); backdrop-filter: blur(12px); border: 1px solid var(--line);
+  font: 500 9.5px/1 "Geist Mono", ui-monospace, monospace; letter-spacing: .16em; text-transform: uppercase; color: var(--mute);
+  white-space: nowrap; animation: callin .8s var(--ease) both; }
+.app .call b { font: 600 15px/1 "Geist", sans-serif; letter-spacing: -.02em; color: var(--ink); text-transform: none; }
+.app .call::before { content: ""; position: absolute; top: 50%; width: 36px; height: 1px; background: linear-gradient(90deg, var(--hot), transparent); }
+.app .c1 { left: calc(100% + 40px); top: 12%; animation-delay: .1s; }
+.app .c2 { left: calc(100% + 40px); top: 46%; animation-delay: .25s; }
+.app .c3 { right: calc(100% + 40px); top: 70%; animation-delay: .4s; text-align: right; }
+.app .c1::before, .app .c2::before { right: 100%; transform: scaleX(-1); }
+.app .c3::before { left: 100%; }
+@keyframes callin { from { opacity: 0; transform: translateY(10px); } }
+@media (max-width: 1300px) { .app .call { display: none; } }
+
+/* ---------- readability: hero number ---------- */
+.app .scorecard { display: flex; align-items: flex-end; justify-content: space-between; margin: 22px 0 14px;
+  padding: 18px 18px 16px; border-radius: 16px; border: 1px solid var(--line);
+  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--hot) 14%, transparent), transparent 60%), var(--panel); }
+.app .sc-num b { font: 700 64px/.9 "Geist", sans-serif; letter-spacing: -.06em; font-variant-numeric: tabular-nums;
+  background: linear-gradient(180deg, #fff, color-mix(in srgb, var(--hot) 55%, #fff)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.app .sc-num i { margin-left: 3px; font: 500 22px/1 "Geist", sans-serif; color: var(--mute); }
+.app .sc-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+  font: 500 9.5px/1 "Geist Mono", ui-monospace, monospace; letter-spacing: .18em; text-transform: uppercase; color: var(--mute); }
+/* the grade pill moved into .sc-meta, so drop the flex-heading rules it relied on */
+.app .sc-meta .gpill { margin-left: 0; order: 0; padding: 4px 10px; border-radius: 99px; font-size: 10px; background: var(--panel-2); }
+
+/* segmented meters instead of flat lines */
+.app .fbar { -webkit-mask: repeating-linear-gradient(90deg, #000 0 7px, transparent 7px 10px);
+            mask: repeating-linear-gradient(90deg, #000 0 7px, transparent 7px 10px); background: rgba(255, 255, 255, .08); height: 8px; border-radius: 2px; }
+.app .fbar b { background: linear-gradient(90deg, color-mix(in srgb, var(--hot) 60%, #3fd391), #3fd391); }
+.app .factors li.mid .fbar b { background: #f5b53d; }
+.app .factors li.bad .fbar b { background: #ef5d5d; }
+
+/* richer stat cards */
+.app .stats { gap: 8px; }
+.app .stats > div { position: relative; padding: 12px 14px; overflow: hidden; }
+.app .stats > div::before { content: ""; position: absolute; left: 0; top: 0; width: 28px; height: 2px; background: var(--hot); border-radius: 2px; }
+.app .stats dd { font: 600 15px/1.2 "Geist", sans-serif; letter-spacing: -.01em; margin-top: 7px; }
+.app .stats dt { font-size: 9px; }
+
+/* ---------- segmented control ----------
+   the sliding thumb is .seg::before and is painted in --ink, which theme.css
+   turns near-white in dark mode — that is what made the active label vanish.
+   Tint it with --hot instead and give the active label --ink. */
+.app .seg { padding: 3px; background: var(--panel); border: 1px solid var(--line); border-radius: 99px; }
+.app .seg button { background: transparent; color: var(--mute); font: 500 12px/1 "Geist Mono", ui-monospace, monospace; letter-spacing: .08em; transition: color .25s var(--ease); }
+.app .seg button:hover { color: var(--ink); }
+.app .seg button.on { background: transparent; color: var(--ink); }
+.app .seg::before {
+  background: color-mix(in srgb, var(--hot) 20%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--hot) 60%, transparent);
+  box-shadow: 0 0 18px -6px var(--hot); border-radius: 99px; }
+
+/* ---------- readability pill: neutral glass, colour only in bar + dot ---------- */
+.app .vrow { display: flex; align-items: center; gap: 10px; margin-top: 24px; }
+
+.app .verdict { --c: #3fd391; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px;
+  min-width: 300px; padding: 10px 18px 10px 16px; border-radius: 99px; cursor: pointer; color: var(--ink);
+  background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(14px);
+  border: 1px solid var(--line); box-shadow: none;
+  transition: border-color .35s var(--ease), transform .25s var(--ease); }
+.app .verdict:hover { border-color: color-mix(in srgb, var(--c) 55%, transparent); transform: translateY(-1px); }
+.app .verdict.mid { --c: #f5b53d; } .app .verdict.bad { --c: #ef5d5d; }
+.app .verdict.idle { --c: #8d8e99; } .app .verdict.testing { --c: var(--hot); }
+
+.app .vnum b { font: 600 30px/1 "Geist", sans-serif; letter-spacing: -.05em; font-variant-numeric: tabular-nums;
+  background: none; color: var(--ink); -webkit-text-fill-color: currentColor; }
+.app .vnum i { margin-left: 2px; font: 500 13px/1 "Geist", sans-serif; color: var(--mute); }
+
+.app .vmid small { font: 500 9.5px/1 "Geist Mono", ui-monospace, monospace; letter-spacing: .18em; text-transform: uppercase; color: var(--mute); }
+.app .vbar { height: 3px; margin-top: 8px; background: var(--line); }
+.app .vbar i { background: var(--c); box-shadow: 0 0 10px color-mix(in srgb, var(--c) 70%, transparent); }
+
+.app .vgrade { display: inline-flex; align-items: center; gap: 7px; padding: 0; background: none;
+  font: 500 12.5px/1 "Geist", sans-serif; color: var(--ink); }
+.app .vgrade s { width: 7px; height: 7px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); text-decoration: none; }
+
+/* contrast chip: same glass, no tint */
+.app .ratio { padding: 11px 16px; border-radius: 99px; background: color-mix(in srgb, var(--bg) 55%, transparent);
+  border: 1px solid var(--line); color: var(--mute); font: 500 11px/1 "Geist Mono", ui-monospace, monospace; backdrop-filter: blur(14px); }
+.app .ratio b { color: var(--ink); font-weight: 500; }
+.app .ratio.low b { color: #ef5d5d; }
+
+/* ---------- glass chrome like the film's nav ---------- */
+.app .bar { position: sticky; top: 0; z-index: 20; backdrop-filter: blur(16px);
+  background: color-mix(in srgb, var(--bg) 65%, transparent); border-bottom: 1px solid var(--line); }
+.app .itabs button.on { color: var(--ink); text-shadow: 0 0 18px var(--hot); }
+.app .itabs::after { background: linear-gradient(90deg, transparent, var(--hot), transparent); box-shadow: 0 0 14px var(--hot); }
+.app .dock { box-shadow: 0 30px 60px -24px #000, 0 0 0 1px rgba(255, 255, 255, .04), 0 0 50px -20px var(--hot); }
+
+/* ---------- entrance: panels stagger in as the iris opens ---------- */
+.app .rail, .app .inspector, .app .stagewrap, .app .dock { opacity: 0; transform: translateY(18px);
+  transition: opacity .8s var(--ease), transform .8s var(--ease); }
+.app.in .rail { opacity: 1; transform: none; transition-delay: .05s; }
+.app.in .stagewrap { opacity: 1; transform: none; transition-delay: .15s; }
+.app.in .inspector { opacity: 1; transform: none; transition-delay: .3s; }
+.app.in .dock { opacity: 1; transform: none; transition-delay: .45s; }
+@media (prefers-reduced-motion: reduce) {
+  .app .rail, .app .inspector, .app .stagewrap, .app .dock { opacity: 1; transform: none; transition: none; }
+}
+
+/* ---------- quieter resting state on the style tiles ---------- */
+.app .glyph i, .app .cg { opacity: .85; }
+.app .tgrid button:not(.on):hover .glyph i { opacity: 1; }
+
+/* ---------- top bar: never clipped ---------- */
+.app { min-height: 100vh; }
+/* (the bar's sticky/glass rule lives in the "glass chrome" block above) */

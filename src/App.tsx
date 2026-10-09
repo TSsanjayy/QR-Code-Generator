@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import QRCodeStyling from "qr-code-styling";
+import Lenis from "lenis";
 import { buildPayload, validate, emptyFields, type QRType, type Fields } from "./utils/payload";
-import { Intro } from "./Intro";
-import { runProbe, type Check } from "./utils/readability";
-import { useFx, FxLayer } from "./fx";
 import "./App.css";
-import "./fx.css";
-import "./Verdict.css";
-import "./readability.css";
+import "./polish.css";
+import "./theme.css";
+import ScrollStory from "./ScrollStory";
 
 /* =========================================================
    TYPES & DATA
@@ -27,13 +25,13 @@ interface S {
 interface Recent { id: number; type: QRType; data: string; s: S; at: number; f?: Fmt }
 
 const DEFAULTS: S = {
-  size: 400, margin: 12, fg: "#111729", bg: "#ffffff", ecc: "M", dot: "rounded", corner: "extra-rounded",
+  size: 400, margin: 12, fg: "#0b0d16", bg: "#f6f3ec", ecc: "M", dot: "rounded", corner: "extra-rounded",
   grad: false, g1: "#1f3bff", g2: "#9333ea", logo: "", logoSize: 0.3,
 };
 
 const PRESETS: { name: string; s: Partial<S> }[] = [
-  { name: "Classic", s: { fg: "#000000", bg: "#ffffff", grad: false, dot: "square", corner: "square" } },
-  { name: "Ink", s: { fg: "#111729", bg: "#eef0f5", grad: false, dot: "rounded", corner: "extra-rounded" } },
+  { name: "Classic", s: { fg: "#000000", bg: "#f6f3ec", grad: false, dot: "square", corner: "square" } },
+  { name: "Ink", s: { fg: "#111729", bg: "#edeade", grad: false, dot: "rounded", corner: "extra-rounded" } },
   { name: "Cobalt", s: { bg: "#ffffff", grad: true, g1: "#1f3bff", g2: "#7c3aed", dot: "rounded", corner: "extra-rounded", ecc: "Q" } },
   { name: "Ember", s: { bg: "#fffaf2", grad: true, g1: "#c2410c", g2: "#be123c", dot: "dots", corner: "dot", ecc: "Q" } },
 ];
@@ -75,7 +73,7 @@ const ICONS: Record<QRType, ReactNode> = {
 const BTN_ICONS = {
   download: <path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14" />,
   share: <path d="M12 15V4m0 0L8 8m4-4l4 4M5 12v7a1 1 0 001 1h12a1 1 0 001-1v-7" />,
-  copy: <><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 012-2h9" /></>,
+  copy: <><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a1 1 0 012-2h9" /></>,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
   reset: <path d="M4 12a8 8 0 108-8H8m0 0l3-3M8 4l3 3" />,
   moon: <path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z" />,
@@ -197,9 +195,8 @@ function useTween(target: number) {
    APP
    ========================================================= */
 
-export default function App() {
+function Studio() {
   /* ---------- state ---------- */
-  const [intro, setIntro] = useState<"show" | "reveal" | "gone">("show");
   const [type, setType] = useState<QRType>("url");
   const [fields, setFields] = useState<Fields>({ ...emptyFields, url: "https://example.com" });
   const [s, setS] = useState<S>(DEFAULTS);
@@ -214,7 +211,6 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [dlPhase, setDlPhase] = useState<"idle" | "busy" | "done">("idle");
   const [dlInfo, setDlInfo] = useState<{ size: string } | null>(null);
-  const [probe, setProbe] = useState<Check[] | null>(null);
   const [recOpen, setRecOpen] = useState(false);
   const [recBump, setRecBump] = useState(0);
   const [recPulse, setRecPulse] = useState(false);
@@ -225,7 +221,8 @@ export default function App() {
       const saved = localStorage.getItem("qr-theme");
       if (saved) return saved === "dark";
     } catch { /* storage blocked */ }
-    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+    // dark by default: the story's finale is dark, so the iris must not reveal white
+    return true;
   });
   const [recent, setRecent] = useState<Recent[]>(() => {
     try {
@@ -250,8 +247,17 @@ export default function App() {
   const copyTimer = useRef(0);
   const qr = useRef<QRCodeStyling | null>(null);
   if (!qr.current) qr.current = new QRCodeStyling({ type: "canvas", data: " ", width: 400, height: 400 });
-  const cardRef = useRef<HTMLDivElement>(null);
-  const { fx, react } = useFx(cardRef);
+  const appRef = useRef<HTMLDivElement>(null);
+
+  /* panels stagger in when the story's iris reveals the studio */
+  useEffect(() => {
+    const el = appRef.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { el.classList.add("in"); return; }
+    const io = new IntersectionObserver(([e]) => el.classList.toggle("in", e.isIntersecting), { threshold: 0.35 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   /* ---------- derived ---------- */
   const v = useMemo<S>(() => (hover ? { ...s, ...hover } : s), [s, hover]); // what the preview shows
@@ -261,6 +267,8 @@ export default function App() {
   const simple = SIMPLE[type];
 
   const tones = v.grad ? [v.g1, v.g2] : [v.fg];
+  // the studio's accent follows the film: orange → cobalt → ember
+  const hue = v.grad ? (v.g1 === "#1f3bff" ? 226 : 14) : 24;
   const contrast = Math.min(...tones.map((c) => contrastOf(c, v.bg)));
   const warns: string[] = [];
   if (contrast < 4) warns.push(`Low contrast (${contrast.toFixed(1)}:1)`);
@@ -270,16 +278,12 @@ export default function App() {
   if (payload.length > 300 && v.size < 300) warns.push("Lots of data for this size");
   if (v.logo && v.ecc !== "H") warns.push("Use H error correction with a logo");
   if (v.logo && v.logoSize > 0.35) warns.push("Logo is very large");
-  if (probe && !probe[0].pass) warns.push("Doesn't decode as designed. Simplify it");
-  probe?.filter((c) => !c.pass && c.k !== "clean").slice(0, 2).forEach((c) => warns.push(`Fails when ${c.label.toLowerCase()}`));
 
   /* ---------- scan readability ---------- */
   const version = modules ? Math.max(1, Math.round((modules - 17) / 4)) : 0;
   const cm = (v.size / 300) * 2.54; // printed at 300 dpi
   const density = version <= 5 ? 0 : version <= 12 ? 1 : 2;
   const inverted = tones.some((c) => lum(c) > lum(v.bg));
-  const passed = probe ? probe.filter((c) => c.pass).length : 0;
-  const decodePct = probe ? (passed / probe.length) * 100 : null;
   const factors = [
     { k: "Contrast", w: 0.35, note: `${contrast.toFixed(1)}:1`,
       s: contrast >= 7 ? 100 : contrast >= 4 ? 80 + ((contrast - 4) / 3) * 20 : clamp(((contrast - 1) / 3) * 80) },
@@ -287,15 +291,10 @@ export default function App() {
     { k: "Margin", w: 0.15, note: `${v.margin}px`, s: clamp((v.margin / 10) * 100) },
     { k: "Density", w: 0.15, note: ["Low", "Medium", "High"][density], s: [100, 70, 40][density] },
     { k: "Error fix", w: 0.15, note: v.ecc, s: v.logo && v.ecc !== "H" ? 30 : { L: 50, M: 75, Q: 90, H: 100 }[v.ecc] },
-    ...(probe ? [{ k: "Decode", w: 0, note: `${passed}/${probe.length}`, s: decodePct as number }] : []), // display only
   ];
-  const heur = factors.reduce((a, f) => a + f.s * f.w, 0);
-  const blended = decodePct == null ? heur : heur * 0.55 + decodePct * 0.45; // real decoding counts for 45%
-  const failed = probe ? probe.length - passed : 0;
-  let score = payload ? clamp(blended - failed * 6 - (inverted ? 25 : 0) - (v.logo && v.logoSize > 0.35 ? 10 : 0)) : 0;
-  if (probe && !probe[0].pass) score = Math.min(score, 30);
-  else if (failed > 0) score = Math.min(score, 84); // never "Excellent" while a test fails
-  score = Math.round(score);
+  const score = payload
+    ? Math.round(clamp(factors.reduce((a, f) => a + f.s * f.w, 0) - (inverted ? 25 : 0) - (v.logo && v.logoSize > 0.35 ? 10 : 0)))
+    : 0;
   const grade = GRADES.find((g) => score >= g.min) ?? GRADES[3];
 
   /* ---------- scan test: runs only when asked, and always runs to the end ---------- */
@@ -364,17 +363,6 @@ export default function App() {
         }).catch(() => { /* optional */ });
       });
     }, 450);
-    return () => { alive = false; window.clearTimeout(id); };
-  }, [payload, v]);
-
-  // real decode test: debounced so sliders stay smooth; keeps the last result until the new one lands
-  useEffect(() => {
-    if (!payload || !qr.current) { setProbe(null); return; }
-    let alive = true;
-    const id = window.setTimeout(async () => {
-      const r = await runProbe(qr.current!, payload);
-      if (alive && r) setProbe(r);
-    }, 600);
     return () => { alive = false; window.clearTimeout(id); };
   }, [payload, v]);
 
@@ -452,26 +440,14 @@ export default function App() {
   };
 
   /* ---------- actions ---------- */
-  const set = <K extends keyof S>(k: K, val: S[K]) => {
-    setS((p) => ({ ...p, [k]: val })); setPreset(null);
-    const x = String(val);
-    if (k === "dot") react("morph", { label: `Dots · ${pretty(x)}` });
-    else if (k === "corner") react("morph", { label: `Corners · ${pretty(x)}` });
-    else if (k === "ecc") react("shield", { label: `Error fix · ${x} ${({ L: 7, M: 15, Q: 25, H: 30 } as Record<string, number>)[x]}%`, color: "var(--ok)" });
-    else if (k === "grad") react("wash", { label: val ? "Gradient on" : "Gradient off" });
-    else if (k === "fg" || k === "bg" || k === "g1" || k === "g2") react("color", { color: x });
-    else if (k === "size") react("size", { label: `${x}px` });
-    else if (k === "margin") react("margin", { mg: Number(val) / s.size, label: `Margin ${x}px` });
-    else if (k === "logoSize") react("size", { label: `Logo ${Math.round(Number(val) * 100)}%` });
-    else if (k === "logo") react("stamp", { label: "Logo removed" });
-  };
-  const setField = (k: keyof Fields, val: string) => { setFields((p) => ({ ...p, [k]: val })); react("data"); };
+  const set = <K extends keyof S>(k: K, val: S[K]) => { setS((p) => ({ ...p, [k]: val })); setPreset(null); };
+  const setField = (k: keyof Fields, val: string) => setFields((p) => ({ ...p, [k]: val }));
   const flash = (t: string) => {
     setNote(t);
     window.clearTimeout(noteTimer.current);
     noteTimer.current = window.setTimeout(() => setNote(""), 2200);
   };
-  const store = (l: Recent[]) => { setRecent(l); try { localStorage.setItem("recentQRs", JSON.stringify(l)); } catch { /* ignore */ } };
+  const store = (l: Recent[]) => { setRecent(l); try { localStorage.setItem("recentQRs", JSON.stringify(l)); } catch { /* ignore */ } }
 
   // the finished code shrinks and flies into the "Recent" button, which pulses on arrival
   const flyToRecent = () => {
@@ -557,13 +533,11 @@ export default function App() {
       if (typeof r.result !== "string") return;
       setS((p) => ({ ...p, logo: r.result as string, ecc: "H", logoSize: Math.min(p.logoSize, 0.3) }));
       setPreset(null);
-      react("stamp", { label: "Logo added · error fix H" });
     };
     r.readAsDataURL(f);
   };
 
   const reuse = (r: Recent) => {
-    react("skin", { label: "Loaded from recent" });
     const f = { ...emptyFields };
     if (r.type === "url" || r.type === "text") f[r.type] = r.data;
     if (r.type === "email") f.email = r.data.replace("mailto:", "");
@@ -576,24 +550,8 @@ export default function App() {
   };
 
   const reset = () => {
-    react("reset", { label: "Reset" });
     setType("url"); setFields({ ...emptyFields, url: "https://example.com" });
     setS(DEFAULTS); setPreset(null); setTouched(false);
-  };
-
-  // one click that moves the score the most: safe ECC, bigger quiet zone, larger code, smaller logo, readable colours
-  const autoFix = () => {
-    react("skin", { label: "Settings improved" });
-    setS((p) => ({
-      ...p,
-      ecc: p.logo ? "H" : p.ecc === "L" || p.ecc === "M" ? "Q" : p.ecc,
-      margin: Math.max(p.margin, 10),
-      size: Math.max(p.size, 300),
-      logoSize: Math.min(p.logoSize, 0.3),
-      ...(contrast < 4 || inverted ? { fg: "#111729", bg: "#ffffff", grad: false } : {}),
-    }));
-    setPreset(null);
-    kickScan();
   };
 
   /* ---------- recent downloads ---------- */
@@ -646,6 +604,11 @@ export default function App() {
     : type === "phone" ? `Offers to call ${fields.phone}`
     : type === "wifi" ? `Joins “${fields.ssid}”${fields.security === "nopass" ? " · open network" : ` · ${fields.security}`}`
     : "Shows your text on screen";
+  const tip =
+    density === 2 ? "Dense code. Print it at 4 cm or larger, or shorten the content."
+    : cm < 2 ? "This prints very small. Aim for 2.5 cm or larger."
+    : type === "url" && payload.length > 60 ? "Long links make dense codes. A shorter link scans faster."
+    : "Looks good. Print at 2.5 cm or larger for reliable scans.";
   const raw = type === "wifi" ? payload.replace(/;P:.*;;$/, ";P:••••••;;") : payload;
   const stats: [string, ReactNode][] = [
     ["Grid", `${modules} × ${modules}`],
@@ -661,7 +624,10 @@ export default function App() {
     <div className="details">
       <div className="onscan"><Ico k="scan" /><span>When scanned<b>{onScan}</b></span></div>
 
-      <h3>Readability <em className={`gpill ${grade.tone}`}>{score}%</em></h3>
+      <div className="scorecard">
+        <div className="sc-num"><b>{shown}</b><i>%</i></div>
+        <div className="sc-meta"><span>Scan readability</span><em className={`gpill ${grade.tone}`}>{grade.name}</em></div>
+      </div>
       <ul className="factors">
         {factors.map((f, i) => (
           <li key={f.k} className={f.s >= 70 ? "" : f.s >= 45 ? "mid" : "bad"} style={vars({ "--n": i, "--s": f.s })}>
@@ -670,17 +636,9 @@ export default function App() {
         ))}
       </ul>
 
-      <h3>Decode test <em className="gpill">{probe ? `${passed}/${probe.length}` : "…"}</em></h3>
-      <ul className="checks">
-        {probe
-          ? probe.map((c, i) => <li key={c.k} className={c.pass ? "ok" : "no"} style={vars({ "--n": i })}><i />{c.label}</li>)
-          : <li className="wait"><i />Running decode test…</li>}
-      </ul>
-      {score < 85 && <button type="button" className="plain fixbtn" onClick={autoFix}>Improve score</button>}
-
       <h3>QR details</h3>
       <dl className="stats">
-        {stats.map(([k, val], i) => <div key={k} style={vars({ "--n": i })}><dt>{k}</dt><dd key={typeof val === "string" ? val : density}>{val}</dd></div>)}
+        {stats.map(([k, val], i) => <div key={k} style={vars({ "--n": i })}><dt>{k}</dt><dd>{val}</dd></div>)}
       </dl>
 
       <h3>Quick save</h3>
@@ -693,14 +651,16 @@ export default function App() {
       </div>
 
       <h3>Raw data</h3>
-      <button type="button" className="raw" onClick={copy} title="Click to copy"><code key={raw}>{raw}</code><Ico k="copy" /></button>
+      <button type="button" className="raw" onClick={copy} title="Click to copy"><code>{raw}</code><Ico k="copy" /></button>
+
+      <p className="tip">{tip}</p>
     </div>
   ) : (
     <p className="hint">QR details appear here once the content is valid.</p>
   );
 
   return (
-    <div className={`app ${dark ? "dark" : ""} ${intro === "show" ? "held" : ""}`}>
+    <div ref={appRef} className={`app ${dark ? "dark" : ""}`} style={vars({ "--hue": hue })}>
       {/* ---------- top bar ---------- */}
       <header className="bar">
         <div className="brand">
@@ -715,7 +675,7 @@ export default function App() {
               <Ico k="clock" />Recent{recent.length > 0 && <em className="cnt" key={recBump}>{Math.min(recent.length, 5)}</em>}
             </button>
             {recOpen && (
-              <div className="recpop" role="dialog" aria-label="Recent downloads">
+              <div className="recpop" data-lenis-prevent role="dialog" aria-label="Recent downloads">
                 <div className="rhead">
                   <h3>Recent downloads <em>{Math.min(recent.length, 5)}/5</em></h3>
                   {recent.length > 0 && <button className={`linkbtn ${confirmClear ? "warn" : ""}`} onClick={clearAll}>{confirmClear ? "Sure? Click again" : "Clear all"}</button>}
@@ -762,7 +722,7 @@ export default function App() {
         <nav className="rail" aria-label="QR type">
           {TYPES.map((t, i) => (
             <button key={t.v} className={type === t.v ? "on" : ""} aria-pressed={type === t.v} style={vars({ "--n": i })}
-              onClick={() => { setType(t.v); setTouched(false); setTab("content"); react("flip", { label: t.label }); }}>
+              onClick={() => { setType(t.v); setTouched(false); setTab("content"); }}>
               <svg key={type === t.v ? "on" : "off"} viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{ICONS[t.v]}</svg>
               <span>{t.label}</span>
             </button>
@@ -779,14 +739,21 @@ export default function App() {
 
           <div className="stagewrap">
             <div className={`qrframe ${scanOn ? "testing" : ""} ${result ? `res-${result.k}` : ""} ${previewing ? "pv" : ""}`} data-size={`${v.size} × ${v.size} px`}>
-              <div ref={cardRef} className={`qrcard ${payload ? "" : "stale"} ${previewing ? "preview" : ""}`}>
+              <div className={`qrcard ${payload ? "" : "stale"} ${previewing ? "preview" : ""}`} style={{ background: v.bg }}>
                 <div ref={host} className="qr" />
                 {payload && scanOn && (
                   <div className="scanfx" key={run} aria-hidden="true"><b className="beam" /></div>
                 )}
                 {!payload && <p className="fix">Complete the details to update</p>}
               </div>
-              <FxLayer fx={fx} />
+
+              {payload && (
+                <>
+                  <span className="call c1"><b>{modules} × {modules}</b>modules</span>
+                  <span className="call c2"><b>{cm.toFixed(1)} cm</b>print size</span>
+                  <span className="call c3"><b>≈ {Math.round(cm * 10)} cm</b>scan from</span>
+                </>
+              )}
 
               {result && (
                 <span key={result.n} className={`badge ${result.k}`} role="status" aria-label={result.k === "ok" ? "Scan test passed" : "Scan test found issues"}>
@@ -803,47 +770,28 @@ export default function App() {
               <button type="button" disabled={!payload} onClick={kickScan} aria-live="polite"
                 style={vars({ "--sc": payload && !scanOn ? score : 0 })}
                 className={`verdict ${!payload ? "idle" : scanOn ? "testing" : grade.tone} ${phase === "settle" ? "settle" : ""}`}>
-                <span className="gauge" aria-hidden="true">
-                  <svg viewBox="0 0 44 44" width="56" height="56">
-                    <circle className="g-track" cx="22" cy="22" r="16" />
-                    {Array.from({ length: 24 }, (_, i) => (
-                      <line key={i} className={`g-tick ${payload && !scanOn && ((i + 1) / 24) * 100 <= score ? "on" : ""}`}
-                        style={vars({ "--i": i })} x1="22" y1="1.5" x2="22" y2="3.5" transform={`rotate(${i * 15} 22 22)`} />
-                    ))}
-                    <circle className="g-arc" cx="22" cy="22" r="16" pathLength="100" />
-                  </svg>
-                  <svg className="g-ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path className="brk" d="M4 9V6a2 2 0 012-2h3M15 4h3a2 2 0 012 2v3M20 15v3a2 2 0 01-2 2h-3M9 20H6a2 2 0 01-2-2v-3" />
-                    {scanOn && <path className="vline" d="M7 12h10" />}
-                    {payload && !scanOn && score >= 70 && <path key="g" className="vmark" d="M8 12.5l2.7 2.7L16.5 9.5" pathLength="1" />}
-                    {payload && !scanOn && score < 70 && <path key="b" className="vmark" d="M12 8v5M12 16.5v.01" pathLength="1" />}
-                  </svg>
-                </span>
-
                 <span className="sr">{!payload ? "waiting" : scanOn ? "scanning" : `scan readability ${score} percent, ${grade.name}`}</span>
-
-                <span className="vtxt" aria-hidden="true">
-                  <small>Scan readability{payload && !scanOn && <em> · {grade.name}</em>}</small>
-                  <b>{!payload ? "—" : scanOn ? "··" : <>{shown}<i>%</i></>}</b>
-                  <span className="segs">
-                    {Array.from({ length: 10 }, (_, i) => (
-                      <i key={i} style={vars({ "--i": i })} className={payload && !scanOn && score > i * 10 ? "on" : ""} />
-                    ))}
-                  </span>
+                <span className="vnum" aria-hidden="true">
+                  <b>{!payload ? "—" : scanOn ? "··" : shown}</b>{payload && !scanOn && <i>%</i>}
                 </span>
+                <span className="vmid" aria-hidden="true">
+                  <small>Scan readability</small>
+                  <span className="vbar"><i /></span>
+                </span>
+                <em className="vgrade" aria-hidden="true"><s />{!payload ? "Waiting" : scanOn ? "Reading" : grade.name}</em>
               </button>
               {payload && (
                 <span className={`ratio ${contrast >= 4 ? "ok" : "low"}`} title="Contrast between the code and its background. 4:1 or higher scans reliably.">
-                  <b key={contrast.toFixed(1)}>{contrast.toFixed(1)}</b>:1 contrast
+                  <b>{contrast.toFixed(1)}</b>:1 contrast
                 </span>
               )}
             </div>
-            {warns.length > 0 && <ul className="warns">{warns.map((w, i) => <li key={w} style={vars({ "--n": i })}>{w}</li>)}</ul>}
+            {warns.length > 0 && <ul className="warns">{warns.map((w) => <li key={w}>{w}</li>)}</ul>}
           </div>
 
           {/* ---------- dock ---------- */}
           <div className="dock">
-            <Seg label="Format" value={fmt} options={FORMATS} onChange={(f) => { setFmt(f); react("badge", { label: `Format · ${f.toUpperCase()}` }); }} />
+            <Seg label="Format" value={fmt} options={FORMATS} onChange={setFmt} />
             <span className="sep" />
 
             <button className={`dl ${dlPhase}`} disabled={!payload} onClick={() => download()} title="Download (Ctrl/⌘ + S)">
@@ -864,7 +812,7 @@ export default function App() {
         </main>
 
         {/* ---------- inspector ---------- */}
-        <aside className="inspector" onClick={onInspectorClick}>
+        <aside className="inspector" data-lenis-prevent onClick={onInspectorClick}>
           <div className="itabs" role="tablist" style={vars({ "--n": TABS.length, "--i": TABS.indexOf(tab) })}>
             {TABS.map((t) => (
               <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{pretty(t)}</button>
@@ -895,7 +843,7 @@ export default function App() {
                 <div className="presets">
                   {PRESETS.map((p) => (
                     <button key={p.name} className={preset === p.name ? "on" : ""}
-                      onClick={() => { setS((o) => ({ ...o, ...p.s })); setPreset(p.name); setHover(null); react("skin", { label: `${p.name} preset`, color: p.s.g1 ?? p.s.fg }); }}
+                      onClick={() => { setS((o) => ({ ...o, ...p.s })); setPreset(p.name); setHover(null); }}
                       onMouseEnter={() => setHover(p.s)} onMouseLeave={() => setHover(null)} onFocus={() => setHover(p.s)} onBlur={() => setHover(null)}>
                       <i style={{ background: p.s.grad ? `linear-gradient(135deg, ${p.s.g1}, ${p.s.g2})` : `linear-gradient(135deg, ${p.s.bg ?? "#fff"} 50%, ${p.s.fg ?? "#000"} 50%)` }} />{p.name}
                     </button>
@@ -935,9 +883,32 @@ export default function App() {
           </div>
         </aside>
       </div>
-
-      {intro !== "gone" && <Intro onReveal={() => setIntro("reveal")} onDone={() => setIntro("gone")} />}
     </div>
+  );
+}
+
+/* =========================================================
+   PAGE: scroll film first, the studio as its final chapter
+   ========================================================= */
+
+export default function App() {
+  /* inertial scrolling; skipped entirely when reduced motion is requested */
+  const [lenis, setLenis] = useState<Lenis | null>(null);
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const l = new Lenis({ lerp: 0.09 });
+    let id = requestAnimationFrame(function raf(t: number) { l.raf(t); id = requestAnimationFrame(raf); });
+    setLenis(l);
+    return () => { cancelAnimationFrame(id); l.destroy(); };
+  }, []);
+
+  return (
+    <>
+      <ScrollStory lenis={lenis} />
+      <section id="studio" className="studio-section">
+        <Studio />
+      </section>
+    </>
   );
 }
 
