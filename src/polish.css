@@ -6,17 +6,16 @@
 
 /* spotlight that follows the cursor + soft glow behind the code */
 .app .canvas::after { content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(460px circle at var(--mx, 50%) var(--my, 45%), rgba(255, 106, 61, .07), transparent 60%); }
+  background: radial-gradient(480px circle at var(--mx, 50%) var(--my, 45%), rgba(255, 106, 61, .08), transparent 62%); }
 .app .qrframe { position: relative; }
 .app .qrframe::before { content: ""; position: absolute; inset: -14%; z-index: -1; border-radius: 50%; filter: blur(50px);
-  background: radial-gradient(closest-side, rgba(255, 106, 61, .16), transparent 70%); transition: opacity .5s; }
-.app .qrcard { border-radius: 14px; box-shadow: 0 30px 70px -24px rgba(0, 0, 0, .65), 0 0 0 1px rgba(255, 255, 255, .06); }
+  background: radial-gradient(closest-side, rgba(255, 106, 61, .14), transparent 70%); transition: opacity .5s, transform .5s; }
+.app .qrcard { border-radius: 16px; box-shadow: 0 30px 70px -24px rgba(0, 0, 0, .7), 0 0 0 1px rgba(255, 255, 255, .06); }
 
-/* inspector: consistent section headings, percent chip pushed right */
+/* inspector: consistent section headings */
 .app .details h3 { display: flex; align-items: center; gap: 10px; margin: 26px 0 12px;
-  font: 500 10.5px/1 "Geist Mono", ui-monospace, monospace; letter-spacing: .18em; text-transform: uppercase; opacity: .65; }
-.app .details h3::after { content: ""; flex: 1; height: 1px; background: currentColor; opacity: .14; }
-/* .gpill moved into .scorecard .sc-meta — see theme.css */
+  font: 500 10px/1 "Geist Mono", ui-monospace, monospace; letter-spacing: .20em; text-transform: uppercase; opacity: .65; }
+.app .details h3::after { content: ""; flex: 1; height: 1px; background: currentColor; opacity: .13; }
 
 /* readability rows: bars grow in, values align */
 .app .factors li { padding: 7px 0; }
@@ -28,31 +27,36 @@
 /* stat cards and quick-save buttons: gentle lift + accent edge */
 .app .stats > div, .app .fsizes button, .app .raw, .app .onscan {
   transition: transform .3s var(--ease, cubic-bezier(.22, 1, .36, 1)), border-color .3s, background .3s; }
-.app .stats > div:hover, .app .fsizes button:hover { transform: translateY(-2px); border-color: rgba(255, 106, 61, .5); }
 .app .fsizes button:active { transform: translateY(0) scale(.97); }
-.app .raw:hover { border-color: rgba(255, 106, 61, .5); }
 
-/* type rail: active glow, hover nudge */
+/* type rail: hover nudge */
 .app .rail button { transition: background .3s, color .3s, transform .3s var(--ease, ease); }
-.app .rail button:hover { transform: translateX(2px); }
-.app .rail button.on { box-shadow: inset 3px 0 0 var(--acc, #ff6a3d), 0 0 40px -12px rgba(255, 106, 61, .5); }
 
 /* dock: glassy and floating */
-.app .dock { backdrop-filter: blur(14px); box-shadow: 0 20px 50px -20px rgba(0, 0, 0, .6); }
+.app .dock { backdrop-filter: blur(20px) saturate(1.3); box-shadow: 0 24px 56px -20px rgba(0, 0, 0, .7); }
 
 /* tab content slides in, with a stagger on stats */
 .app .ibody { animation: ibin .45s var(--ease, cubic-bezier(.22, 1, .36, 1)) both; }
 @keyframes ibin { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .app .stats > div, .app .factors li { animation: ibin .5s var(--ease, cubic-bezier(.22, 1, .36, 1)) both; animation-delay: calc(var(--n) * 40ms); }
 
-/* thin scrollbar instead of the bright default */
-.app .inspector, .app .inspector * { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .2) transparent; }
+/* thin scrollbar */
+.app .inspector, .app .inspector * { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .15) transparent; }
 
-/* readability pill sits tighter under the code */
+/* readability pill sits tight under the code */
 .app .vrow { margin-top: 22px; gap: 10px; }
 
-/* wordmark + tag a touch larger */
+/* wordmark a touch larger */
 .app .brand .wm { font-size: 1.1em; }
+
+/* quick-save size text: softer */
+.app .fsizes button span { opacity: .65; }
+
+/* "on scan" icon: orange tint */
+.app .onscan svg { color: var(--hot, var(--acc)); }
+
+/* toast positioning refinement */
+.app .toast { bottom: 92px; }
 
 @media (prefers-reduced-motion: reduce) {
   .app .ibody, .app .stats > div, .app .factors li, .app .fbar b { animation: none !important; }

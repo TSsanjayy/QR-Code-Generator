@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import QRCodeStyling from "qr-code-styling";
 import Lenis from "lenis";
 import { buildPayload, validate, emptyFields, type QRType, type Fields } from "./utils/payload";
+import { drawScene } from "./scene";
 import "./App.css";
 import "./polish.css";
 import "./theme.css";
@@ -248,15 +249,55 @@ function Studio() {
   const qr = useRef<QRCodeStyling | null>(null);
   if (!qr.current) qr.current = new QRCodeStyling({ type: "canvas", data: " ", width: 400, height: 400 });
   const appRef = useRef<HTMLDivElement>(null);
+  const bgCvRef = useRef<HTMLCanvasElement>(null);
+  const [entered, setEntered] = useState(true);
 
   /* panels stagger in when the story's iris reveals the studio */
   useEffect(() => {
     const el = appRef.current;
     if (!el) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { el.classList.add("in"); return; }
-    const io = new IntersectionObserver(([e]) => el.classList.toggle("in", e.isIntersecting), { threshold: 0.35 });
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setEntered(true); return; }
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) setEntered(true);
+    }, { threshold: 0.15 });
     io.observe(el);
     return () => io.disconnect();
+  }, []);
+
+  /* 3-D blocks background: the same scene.ts renderer locked at the finale frame */
+  useEffect(() => {
+    const canvas = bgCvRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let dpr = 1, w = 0, h = 0, raf = 0;
+    const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+    const resize = () => {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = canvas.clientWidth; h = canvas.clientHeight;
+      canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+    };
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+    const onMove = (e: PointerEvent) => {
+      mouse.tx = (e.clientX / window.innerWidth - 0.5) * 2;
+      mouse.ty = (e.clientY / window.innerHeight - 0.5) * 2;
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    let last = performance.now();
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      mouse.x += (mouse.tx - mouse.x) * (1 - Math.exp(-dt * 4));
+      mouse.y += (mouse.ty - mouse.y) * (1 - Math.exp(-dt * 4));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // p = 0.995 → the flat, close-up grid of fully-assembled cubes
+      drawScene(ctx, w, h, reduce ? 0.995 : 0.995, now / 1000, mouse);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); window.removeEventListener("pointermove", onMove); };
   }, []);
 
   /* ---------- derived ---------- */
@@ -677,7 +718,11 @@ function Studio() {
   );
 
   return (
-    <div ref={appRef} className={`app ${dark ? "dark" : ""}`} style={vars({ "--hue": hue })}>
+    <div ref={appRef} className={`app ${dark ? "dark" : ""} ${entered ? "in" : ""}`} style={vars({ "--hue": hue })}>
+      {/* Full-bleed 3-D blocks background — matches ScrollStory canvas pixel-for-pixel */}
+      <canvas ref={bgCvRef} className="bg-cv" aria-hidden="true" />
+      <div className="bg-vignette" aria-hidden="true" />
+
       {/* ---------- top bar ---------- */}
       <header className="bar">
         <div className="brand">
@@ -793,13 +838,16 @@ function Studio() {
                 </span>
                 <span className="vmid" aria-hidden="true">
                   <small>Scan readability</small>
-                  <span className="vbar"><i /></span>
                 </span>
-                <em className="vgrade" aria-hidden="true"><s />{!payload ? "Waiting" : scanOn ? "Reading" : grade.name}</em>
+                <span className={`vgrade ${grade.tone}`} aria-hidden="true">
+                  <i className="gdot" />
+                  {!payload ? "Waiting" : scanOn ? "Reading" : grade.name}
+                </span>
               </button>
               {payload && (
                 <span className={`ratio ${contrast >= 4 ? "ok" : "low"}`} title="Contrast between the code and its background. 4:1 or higher scans reliably.">
-                  <b>{contrast.toFixed(1)}</b>:1 contrast
+                  <b>{contrast.toFixed(1)}:1</b>
+                  <small>Contrast</small>
                 </span>
               )}
             </div>

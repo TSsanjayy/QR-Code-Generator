@@ -211,7 +211,7 @@ export function drawScene(
   const sPh = 2 * seg(p, 0.47, 0.6);
   const beamT = seg(p, 0.66, 0.8);
   const dive = smooth(seg(p, 0.9, 0.955)); // 0 → 1 as we fall into the code
-  const sp = smooth(seg(p, 0.93, 0.975)); // sparkle strength
+  const sp = smooth(seg(p, 0.93, 0.975)) * (1 - smooth(seg(p, 0.985, 0.995))); // sparkle strength fades as studio settles
   const beamZ = mix(N / 2 + 1.5, -N / 2 - 1.5, beamT);
   const bs = 0.9 - 0.15 * Math.sin(sPh * Math.PI);
   const asm = tAsm * 1.75;
@@ -313,6 +313,20 @@ export function drawScene(
     ST.vx[i] = V[0]; ST.vy[i] = V[1]; ST.vz[i] = V[2];
   }
   ORD.sort((i, j) => ST.vz[j] - ST.vz[i]);
+
+  /* backing plate: off-modules are never drawn, so without this the gaps punch
+     pure-black holes through the code. Soft slate keeps them reading as recessed
+     instead of void. Fades in as the grid assembles. */
+  const bp = smooth(seg(p, 0.1, 0.3));
+  if (bp > 0.01 && proj(0, 1.2, 0)) {
+    const R2 = (FOC * N * 0.78) / V[2];
+    const bg = ctx.createRadialGradient(PXY[0], PXY[1], 0, PXY[0], PXY[1], R2);
+    bg.addColorStop(0, `rgba(16,18,28,${(0.94 * bp).toFixed(3)})`);
+    bg.addColorStop(0.6, `rgba(11,13,21,${(0.6 * bp).toFixed(3)})`);
+    bg.addColorStop(1, "rgba(9,11,19,0)");
+    ctx.fillStyle = bg;
+    ctx.fillRect(PXY[0] - R2, PXY[1] - R2, R2 * 2, R2 * 2);
+  }
 
   /* cubes, far to near */
   for (let k = 0; k < NC; k++) {

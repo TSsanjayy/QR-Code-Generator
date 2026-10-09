@@ -29,8 +29,8 @@
 
 /* the film is a solid sheet with a hole cut in it; --iris grows that hole */
 .ss-stick { position: sticky; top: 0; height: 100vh; height: 100dvh; overflow: hidden; background: #05060a; --iris: 0%;
-  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent var(--iris), #000 calc(var(--iris) + 1.5%));
-          mask-image: radial-gradient(circle at 50% 50%, transparent var(--iris), #000 calc(var(--iris) + 1.5%)); }
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent var(--iris), rgba(0, 0, 0, .35) calc(var(--iris) + 6%), #000 calc(var(--iris) + 14%));
+          mask-image: radial-gradient(circle at 50% 50%, transparent var(--iris), rgba(0, 0, 0, .35) calc(var(--iris) + 6%), #000 calc(var(--iris) + 14%)); }
 .ss-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
 /* atmosphere: a colour haze that follows the code's style */

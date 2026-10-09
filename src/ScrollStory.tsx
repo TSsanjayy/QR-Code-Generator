@@ -129,11 +129,13 @@ export default function ScrollStory({ lenis }: { lenis?: Lenis | null }) {
       root.style.setProperty("--hue", accentHue(p).toFixed(1));
 
       /* the dive opens an iris in the film, revealing the live studio behind it */
-      const t = seg(p, 0.965, 0.997);
+      const t = seg(p, 0.955, 0.995);
       const iris = t * t * (3 - 2 * t);
       const st = stickRef.current;
-      if (st) st.style.setProperty("--iris", `${(iris * 105).toFixed(1)}%`);
-      if (studioEl) studioEl.style.transform = iris >= 1 ? "" : `scale(${(0.95 + 0.05 * iris).toFixed(4)})`;
+      if (st) st.style.setProperty("--iris", `${(iris * 115).toFixed(1)}%`);
+      if (studioEl) {
+        studioEl.style.transform = iris >= 1 ? "" : `scale(${(0.97 + 0.03 * iris).toFixed(4)})`;
+      }
     };
     raf = requestAnimationFrame(tick);
 

@@ -5,83 +5,126 @@
    --hot, same glow / vignette / grain.
    ========================================================= */
 
+/* =========================================================
+   3-D BLOCKS BACKGROUND — FULL-BLEED
+   Matches ScrollStory canvas pixel-for-pixel across whole viewport
+   ========================================================= */
+.app .bg-cv {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  display: block; pointer-events: none; z-index: 0;
+  opacity: .75;
+}
+.app:not(.dark) .bg-cv {
+  opacity: .28;
+  mix-blend-mode: multiply;
+  filter: contrast(1.15) brightness(1.05);
+}
+/* radial vignette so center stays legible while cubes dissolve toward edges */
+.app .bg-vignette {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    radial-gradient(ellipse 65% 65% at 50% 50%, transparent 20%, rgba(5,6,10,.6) 65%, rgba(5,6,10,.95) 100%),
+    linear-gradient(to bottom, rgba(5,6,10,.5), transparent 15%, transparent 85%, rgba(5,6,10,.5));
+}
+/* light mode: warm vignette matching the paper palette */
+.app:not(.dark) .bg-vignette {
+  background:
+    radial-gradient(ellipse 65% 65% at 50% 50%, transparent 20%, rgba(245,243,236,.65) 65%, rgba(245,243,236,.96) 100%),
+    linear-gradient(to bottom, rgba(245,243,236,.5), transparent 15%, transparent 85%, rgba(245,243,236,.5));
+}
+
+/* ensure top bar and main grid sit cleanly above the 3D canvas */
+.app > .bar, .app > .body { position: relative; z-index: 2; }
+.app .canvas::before { display: none; }
+.app .canvas::after { z-index: 2; }
+
 /* ---------- tokens ---------- */
 .app, .app.dark {
   --bg: #05060a; --panel: rgba(255, 255, 255, .03); --panel-2: rgba(255, 255, 255, .06);
   --line: rgba(255, 255, 255, .1); --ink: #f2f2f5; --mute: #8d8e99;
+  --hair: rgba(255, 255, 255, .06); --paper: #0c0d12;
   --hue: 24; --hot: hsl(var(--hue) 100% 62%);
-  /* --accent is unused; --acc is what App.css reads (47x), so point it at the same hue */
   --accent: var(--hot); --acc: var(--hot); --acc-ink: #fff;
   --ease: cubic-bezier(.22, 1, .36, 1);
   background: var(--bg); color: var(--ink);
   font-family: "Geist", system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+  color-scheme: dark;
 }
-/* light mode = the film's warm cube white, not stark white */
+/* light mode = warm architectural parchment */
 .app:not(.dark) {
-  --bg: #f4f2ea; --panel: rgba(5, 6, 10, .03); --panel-2: rgba(5, 6, 10, .06);
-  --line: rgba(5, 6, 10, .12); --ink: #0b0b10; --mute: #6b6c76;
-  --hot: hsl(18 92% 52%);
+  --bg: #f5f3ec; --panel: rgba(10, 10, 16, .04); --panel-2: rgba(10, 10, 16, .07);
+  --line: rgba(10, 10, 16, .12); --ink: #111218; --mute: #676974;
+  --hair: rgba(10, 10, 16, .08); --paper: #edeae0;
+  --hot: hsl(18 92% 50%); --acc: hsl(18 92% 50%); --acc-ink: #ffffff;
+  --key-hi: rgba(255, 255, 255, 0.85); --key-lo: rgba(10, 10, 16, 0.06);
+  background: var(--bg); color: var(--ink);
+  color-scheme: light;
 }
 
 /* ---------- atmosphere ---------- */
 .app { position: relative; isolation: isolate; }
+/* multi-layer radial haze — mirrors the film's .ss-glow */
 .app::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background:
-    radial-gradient(60vmax 45vmax at 68% 52%, hsl(var(--hue) 95% 55% / .10), transparent 70%),
-    radial-gradient(50vmax 30vmax at 50% 112%, hsl(var(--hue) 95% 50% / .14), transparent 70%); }
+    radial-gradient(60vmax 45vmax at 68% 52%, hsl(var(--hue) 95% 55% / .11), transparent 70%),
+    radial-gradient(50vmax 30vmax at 50% 112%, hsl(var(--hue) 95% 50% / .15), transparent 70%),
+    radial-gradient(40vmax 35vmax at 20% 20%, hsl(calc(var(--hue) + 180) 60% 55% / .04), transparent 70%); }
+/* film grain — identical texture to scroll story */
 .app.dark::after, .app:not(.dark)::after { content: ""; position: fixed; inset: 0; z-index: 50; pointer-events: none;
-  opacity: .10; mix-blend-mode: overlay;
+  opacity: .12; mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
 
 /* ---------- surfaces: translucent, hairline borders ---------- */
 .app .bar, .app .rail, .app .inspector { background: transparent; border-color: var(--line); }
 .app .canvas { background: transparent; }
-.app .inspector, .app .rail { backdrop-filter: blur(14px); background: color-mix(in srgb, var(--bg) 70%, transparent); }
+.app .inspector, .app .rail { backdrop-filter: blur(20px) saturate(1.4); background: color-mix(in srgb, var(--bg) 75%, transparent); }
 .app .stats > div, .app .fsizes button, .app .raw, .app .onscan, .app .tgrid button,
 .app .presets button, .app .swatch, .app .toggle, .app .inwrap, .app .drop {
   background: var(--panel); border: 1px solid var(--line); color: var(--ink); border-radius: 12px; }
 .app .tgrid button.on, .app .presets button.on { border-color: var(--hot);
-  background: color-mix(in srgb, var(--hot) 12%, transparent); box-shadow: 0 0 24px -8px var(--hot); }
+  background: color-mix(in srgb, var(--hot) 12%, transparent);
+  box-shadow: 0 0 28px -8px color-mix(in srgb, var(--hot) 70%, transparent), inset 0 1px 0 rgba(255,255,255,.08); }
 .app .inwrap:focus-within { border-color: var(--hot); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hot) 22%, transparent); }
 .app input { color: var(--ink); font-family: "Geist", sans-serif; }
 
 /* ---------- type: serif wordmark, mono labels ---------- */
 .app .wm { font: 400 27px/1 "Instrument Serif", Georgia, serif; letter-spacing: -.01em; }
-.app .brand em { padding: 3px 9px; border: 1px solid var(--line); border-radius: 99px; color: var(--mute);
-  font: 500 10px/1.2 "Geist Mono", ui-monospace, monospace; letter-spacing: .06em; text-transform: uppercase; }
+/* brand tag: pill like the film's nav chip */
+.app .brand em { padding: 3px 10px; border: 1px solid var(--line); border-radius: 99px; color: var(--mute);
+  font: 500 10px/1.2 "Geist Mono", ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase;
+  background: var(--panel-2); }
 .app .tl, .app .details h3, .app .stats dt, .app .rail span, .app .rh h3, .app .rhead h3,
 .app .field > span, .app .seg + span {
-  font-family: "Geist Mono", ui-monospace, monospace; letter-spacing: .16em; text-transform: uppercase; color: var(--mute); }
+  font-family: "Geist Mono", ui-monospace, monospace; letter-spacing: .20em; text-transform: uppercase; color: var(--mute); }
 .app .itabs button.on { color: var(--ink); }
 
 /* ---------- buttons: pills like the film's nav ---------- */
 .app .plain { border: 1px solid var(--line); background: var(--panel); color: var(--ink);
-  border-radius: 99px; backdrop-filter: blur(10px);
-  transition: border-color .25s var(--ease), background .25s var(--ease), transform .25s var(--ease); }
-.app .plain:hover:not(:disabled) { border-color: var(--hot); background: var(--panel-2); transform: translateY(-1px); }
+  border-radius: 99px; backdrop-filter: blur(12px);
+  transition: border-color .25s var(--ease), background .25s var(--ease), transform .25s var(--ease), box-shadow .25s var(--ease); }
+.app .plain:hover:not(:disabled) { border-color: color-mix(in srgb, var(--hot) 70%, transparent); background: var(--panel-2); transform: translateY(-1px);
+  box-shadow: 0 8px 24px -8px rgba(0,0,0,.4), 0 0 16px -4px color-mix(in srgb, var(--hot) 20%, transparent); }
 .app .dl { background: linear-gradient(180deg, color-mix(in srgb, var(--hot) 86%, #fff), var(--hot)); color: #130905;
   border-radius: 14px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 18px 40px -14px var(--hot); }
-.app .dock { background: color-mix(in srgb, var(--bg) 60%, transparent); border: 1px solid var(--line); border-radius: 18px; }
+.app .dl:hover:not(:disabled) { box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 24px 50px -12px var(--hot), 0 0 30px -8px var(--hot); }
+.app .dock { background: color-mix(in srgb, var(--bg) 60%, transparent); border: 1px solid var(--line); border-radius: 20px;
+  backdrop-filter: blur(20px) saturate(1.3); }
 .app .seg { background: var(--panel); border: 1px solid var(--line); border-radius: 99px; }
 
-/* ---------- accents use one colour: --hot ---------- */
-/* the inset shadow replaces App.css's ::before bar, so switch that off to avoid
-   two accent edges stacked on the same side; keep polish.css's glow */
+/* ---------- accents: --hot ---------- */
 .app .rail button.on::before { display: none; }
 .app .rail button.on { color: var(--hot); background: color-mix(in srgb, var(--hot) 8%, transparent);
-  box-shadow: inset 3px 0 0 var(--hot), 0 0 40px -12px color-mix(in srgb, var(--hot) 50%, transparent); }
+  box-shadow: inset 3px 0 0 var(--hot), 0 0 50px -10px color-mix(in srgb, var(--hot) 45%, transparent); }
 .app .itabs button.on::after, .app .slide input { accent-color: var(--hot); }
 .app .recpop { background: color-mix(in srgb, var(--bg) 88%, #000); border: 1px solid var(--line);
-  border-radius: 16px; backdrop-filter: blur(18px); }
+  border-radius: 18px; backdrop-filter: blur(24px) saturate(1.3); }
 .app .cnt { background: var(--hot); color: #130905; }
 
-/* ---------- canvas grid + code card ----------
-   the card takes its colour inline from v.bg, so the old white frame and the
-   rendered code are one layer (padding 0 removes the white border) */
-.app .qrcard { padding: 0; border-radius: 14px; box-shadow: 0 30px 70px -24px rgba(0, 0, 0, .7), 0 0 80px -20px var(--hot); }
+/* ---------- canvas grid + code card ---------- */
+.app .qrcard { padding: 0; border-radius: 16px; box-shadow: 0 24px 52px -26px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.06); }
+.app:not(.dark) .qrcard { box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 24px 44px -20px rgba(0,0,0,.22), 0 0 0 1px rgba(0,0,0,.06); }
 
-/* two-tier grid (fine + coarse), centred, masked so it dissolves at the edges */
-.app .canvas { --grid-a: rgba(255, 255, 255, .045); --grid-b: rgba(255, 255, 255, .085); background: transparent; }
+.app .canvas { --grid-a: rgba(255, 255, 255, .04); --grid-b: rgba(255, 255, 255, .08); background: transparent; }
 .app:not(.dark) .canvas { --grid-a: rgba(5, 6, 10, .05); --grid-b: rgba(5, 6, 10, .09); }
 .app .canvas::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
   background-image:
@@ -91,128 +134,172 @@
     linear-gradient(90deg, var(--grid-b) 1px, transparent 1px);
   background-size: 28px 28px, 28px 28px, 140px 140px, 140px 140px;
   background-position: center center;
-  -webkit-mask-image: radial-gradient(ellipse 62% 56% at 50% 46%, #000 18%, transparent 78%);
-          mask-image: radial-gradient(ellipse 62% 56% at 50% 46%, #000 18%, transparent 78%); }
+  -webkit-mask-image: radial-gradient(ellipse 65% 58% at 50% 46%, #000 20%, transparent 80%);
+          mask-image: radial-gradient(ellipse 65% 58% at 50% 46%, #000 20%, transparent 80%); }
 
-/* the code floats, with a soft shadow on the floor underneath */
+/* the code floats, shadow breathes beneath it */
 .app .qrcard { animation: qfloat 6s ease-in-out infinite; }
 @keyframes qfloat { 50% { transform: translateY(-8px); } }
 .app .qrframe::after { content: ""; position: absolute; left: 12%; right: 12%; bottom: -34px; height: 26px; z-index: -1;
-  background: radial-gradient(closest-side, rgba(0, 0, 0, .65), transparent); filter: blur(8px);
+  background: radial-gradient(closest-side, rgba(0,0,0,.65), transparent); filter: blur(8px);
   animation: qshadow 6s ease-in-out infinite; }
 @keyframes qshadow { 50% { transform: scale(.88); opacity: .6; } }
 
 /* ---------- floating callouts ---------- */
-.app .call { position: absolute; display: flex; flex-direction: column; gap: 4px; padding: 9px 13px; border-radius: 12px;
-  background: color-mix(in srgb, var(--bg) 60%, transparent); backdrop-filter: blur(12px); border: 1px solid var(--line);
-  font: 500 9.5px/1 "Geist Mono", ui-monospace, monospace; letter-spacing: .16em; text-transform: uppercase; color: var(--mute);
+.app .call { position: absolute; display: flex; flex-direction: column; gap: 4px; padding: 9px 14px; border-radius: 14px;
+  background: color-mix(in srgb, var(--bg) 60%, transparent); backdrop-filter: blur(14px); border: 1px solid var(--line);
+  font: 500 9.5px/1 "Geist Mono", ui-monospace, monospace; letter-spacing: .18em; text-transform: uppercase; color: var(--mute);
   white-space: nowrap; animation: callin .8s var(--ease) both; }
 .app .call b { font: 600 15px/1 "Geist", sans-serif; letter-spacing: -.02em; color: var(--ink); text-transform: none; }
-.app .call::before { content: ""; position: absolute; top: 50%; width: 36px; height: 1px; background: linear-gradient(90deg, var(--hot), transparent); }
+/* leader line */
+.app .call::before { content: ""; position: absolute; top: 50%; width: 62px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--hot)); opacity: .75; }
 .app .c1 { left: calc(100% + 40px); top: 12%; animation-delay: .1s; }
 .app .c2 { left: calc(100% + 40px); top: 46%; animation-delay: .25s; }
 .app .c3 { right: calc(100% + 40px); top: 70%; animation-delay: .4s; text-align: right; }
 .app .c1::before, .app .c2::before { right: 100%; transform: scaleX(-1); }
 .app .c3::before { left: 100%; }
+/* terminal dot at leader end */
+.app .call::after { content: ""; position: absolute; top: 50%; width: 5px; height: 5px;
+  margin-top: -2.5px; border-radius: 50%; background: var(--hot); box-shadow: 0 0 8px var(--hot); }
+.app .c1::after, .app .c2::after { right: calc(100% + 62px); }
+.app .c3::after { left: calc(100% + 62px); }
 @keyframes callin { from { opacity: 0; transform: translateY(10px); } }
 @media (max-width: 1300px) { .app .call { display: none; } }
 
-/* ---------- readability: hero number ---------- */
-.app .scorecard { display: flex; align-items: flex-end; justify-content: space-between; margin: 22px 0 14px;
-  padding: 18px 18px 16px; border-radius: 16px; border: 1px solid var(--line);
-  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--hot) 14%, transparent), transparent 60%), var(--panel); }
-.app .sc-num b { font: 700 64px/.9 "Geist", sans-serif; letter-spacing: -.06em; font-variant-numeric: tabular-nums;
-  background: linear-gradient(180deg, #fff, color-mix(in srgb, var(--hot) 55%, #fff)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.app .sc-num i { margin-left: 3px; font: 500 22px/1 "Geist", sans-serif; color: var(--mute); }
-.app .sc-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
-  font: 500 9.5px/1 "Geist Mono", ui-monospace, monospace; letter-spacing: .18em; text-transform: uppercase; color: var(--mute); }
-/* the grade pill moved into .sc-meta, so drop the flex-heading rules it relied on */
-.app .sc-meta .gpill { margin-left: 0; order: 0; padding: 4px 10px; border-radius: 99px; font-size: 10px; background: var(--panel-2); }
+/* callout polish */
+.app .call { padding: 8px 12px; opacity: .92; transition: opacity .3s var(--ease); }
+.app .call:hover { opacity: 1; }
 
-/* segmented meters instead of flat lines */
+/* ---------- readability scorecard ---------- */
+.app .scorecard { display: flex; align-items: center; justify-content: space-between; gap: 18px;
+  overflow: hidden; position: relative; margin: 18px 0 14px; padding: 20px 20px 18px;
+  border-radius: 18px; border: 1px solid var(--line);
+  background: radial-gradient(130% 150% at 0% 0%, color-mix(in srgb, var(--hot) 16%, transparent), transparent 60%), var(--panel); }
+.app .sc-left { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.app .sc-num b { font: 700 68px/.9 "Geist", sans-serif; letter-spacing: -.06em; font-variant-numeric: tabular-nums;
+  background: linear-gradient(180deg, #fff 20%, color-mix(in srgb, var(--hot) 60%, #fff));
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
+.app .sc-num i { margin-left: 3px; font: 500 22px/1 "Geist", sans-serif; color: var(--mute); }
+.app .sc-meta { display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+  font: 500 9px/1 "Geist Mono", ui-monospace, monospace; letter-spacing: .20em; text-transform: uppercase; color: var(--mute); }
+.app .sc-meta .gpill { margin-left: 0; order: 0; padding: 5px 12px; border-radius: 99px; font-size: 10px;
+  background: var(--panel-2); border: 1px solid var(--line); }
+
+/* instrument dial */
+.app .sc-dial { flex-shrink: 0; position: relative; }
+.app .sc-dial svg { display: block; overflow: visible; }
+.app .sd-tr { fill: none; stroke: var(--line); stroke-width: 6; }
+.app .sd-arc { fill: none; stroke: var(--hot); stroke-width: 6; stroke-linecap: round;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--hot) 65%, transparent));
+  transition: stroke-dashoffset .9s var(--ease); }
+.app .sd-tick { stroke: var(--line); stroke-width: 1.4; stroke-linecap: round;
+  transition: stroke .25s calc(var(--i) * 8ms); }
+.app .sd-tick.on { stroke: var(--hot); filter: drop-shadow(0 0 3px color-mix(in srgb, var(--hot) 80%, transparent)); }
+.app .sd-needle { fill: var(--ink); filter: drop-shadow(0 0 6px var(--hot));
+  transition: transform .9s var(--ease); }
+@media (max-width: 420px) { .app .sc-dial { display: none; } }
+
+/* segmented meters */
 .app .fbar { -webkit-mask: repeating-linear-gradient(90deg, #000 0 7px, transparent 7px 10px);
-            mask: repeating-linear-gradient(90deg, #000 0 7px, transparent 7px 10px); background: rgba(255, 255, 255, .08); height: 8px; border-radius: 2px; }
-.app .fbar b { background: linear-gradient(90deg, color-mix(in srgb, var(--hot) 60%, #3fd391), #3fd391); }
+            mask: repeating-linear-gradient(90deg, #000 0 7px, transparent 7px 10px);
+  background: rgba(255,255,255,.07); height: 8px; border-radius: 2px; }
+.app .fbar b { background: linear-gradient(90deg, color-mix(in srgb, var(--hot) 60%, #3fd391), #3fd391);
+  box-shadow: none; opacity: .92; }
 .app .factors li.mid .fbar b { background: #f5b53d; }
 .app .factors li.bad .fbar b { background: #ef5d5d; }
 
-/* richer stat cards */
+/* stat cards */
 .app .stats { gap: 8px; }
-.app .stats > div { position: relative; padding: 12px 14px; overflow: hidden; }
-.app .stats > div::before { content: ""; position: absolute; left: 0; top: 0; width: 28px; height: 2px; background: var(--hot); border-radius: 2px; }
+.app .stats > div { position: relative; padding: 12px 14px; overflow: hidden; border-radius: 14px; }
+.app .stats > div::before { content: ""; position: absolute; left: 0; top: 0; width: 22px; height: 2px;
+  background: var(--hot); border-radius: 2px; opacity: .8; }
 .app .stats dd { font: 600 15px/1.2 "Geist", sans-serif; letter-spacing: -.01em; margin-top: 7px; }
-.app .stats dt { font-size: 9px; }
+.app .stats dt { font-size: 9px; letter-spacing: .20em; }
+.app .stats > div:hover { border-color: color-mix(in srgb, var(--hot) 45%, transparent); transform: translateY(-2px);
+  background: color-mix(in srgb, var(--hot) 5%, var(--panel)); }
 
-/* ---------- segmented control ----------
-   the sliding thumb is .seg::before and is painted in --ink, which theme.css
-   turns near-white in dark mode — that is what made the active label vanish.
-   Tint it with --hot instead and give the active label --ink. */
+/* ---------- segmented control ---------- */
 .app .seg { padding: 3px; background: var(--panel); border: 1px solid var(--line); border-radius: 99px; }
-.app .seg button { background: transparent; color: var(--mute); font: 500 12px/1 "Geist Mono", ui-monospace, monospace; letter-spacing: .08em; transition: color .25s var(--ease); }
+.app .seg button { background: transparent; color: var(--mute);
+  font: 500 12px/1 "Geist Mono", ui-monospace, monospace; letter-spacing: .08em; transition: color .25s var(--ease); }
 .app .seg button:hover { color: var(--ink); }
 .app .seg button.on { background: transparent; color: var(--ink); }
-.app .seg::before {
-  background: color-mix(in srgb, var(--hot) 20%, transparent) !important;
+.app .seg::before { background: color-mix(in srgb, var(--hot) 20%, transparent) !important;
   border: 1px solid color-mix(in srgb, var(--hot) 60%, transparent);
-  box-shadow: 0 0 18px -6px var(--hot); border-radius: 99px; }
+  box-shadow: 0 0 20px -4px color-mix(in srgb, var(--hot) 60%, transparent); border-radius: 99px; }
 
-/* ---------- readability pill: neutral glass, colour only in bar + dot ---------- */
-.app .vrow { display: flex; align-items: center; gap: 10px; margin-top: 24px; }
+/* ---------- readability verdict pill ---------- */
+.app .vrow { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 24px; }
 
-.app .verdict { --c: #3fd391; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px;
-  min-width: 300px; padding: 10px 18px 10px 16px; border-radius: 99px; cursor: pointer; color: var(--ink);
-  background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(14px);
-  border: 1px solid var(--line); box-shadow: none;
-  transition: border-color .35s var(--ease), transform .25s var(--ease); }
-.app .verdict:hover { border-color: color-mix(in srgb, var(--c) 55%, transparent); transform: translateY(-1px); }
-.app .verdict.mid { --c: #f5b53d; } .app .verdict.bad { --c: #ef5d5d; }
-.app .verdict.idle { --c: #8d8e99; } .app .verdict.testing { --c: var(--hot); }
+.app .verdict { --c: #3fd391; display: inline-flex; align-items: center; gap: 14px;
+  height: 44px; padding: 0 16px 0 18px; border-radius: 99px; cursor: pointer;
+  color: var(--ink); background: rgba(12, 13, 19, 0.94);
+  backdrop-filter: blur(20px); border: 1px solid var(--line);
+  box-shadow: 0 4px 20px -6px rgba(0,0,0,.5);
+  transition: border-color .25s var(--ease), transform .25s var(--ease), box-shadow .25s var(--ease); }
+.app .verdict:hover { border-color: color-mix(in srgb, var(--c) 55%, transparent); transform: translateY(-1px);
+  box-shadow: 0 10px 30px -10px rgba(0,0,0,.5), 0 0 20px -6px color-mix(in srgb, var(--c) 25%, transparent); }
+.app .verdict.mid { --c: #f5b53d; }
+.app .verdict.bad { --c: #ef5d5d; }
+.app .verdict.idle { --c: #8d8e99; }
+.app .verdict.testing { --c: var(--hot); }
 
-.app .vnum b { font: 600 30px/1 "Geist", sans-serif; letter-spacing: -.05em; font-variant-numeric: tabular-nums;
-  background: none; color: var(--ink); -webkit-text-fill-color: currentColor; }
-.app .vnum i { margin-left: 2px; font: 500 13px/1 "Geist", sans-serif; color: var(--mute); }
+.app .vnum { display: inline-flex; align-items: baseline; gap: 2px; }
+.app .vnum b { font: 700 20px/1 "Geist", sans-serif; letter-spacing: -.03em; font-variant-numeric: tabular-nums;
+  color: var(--ink); }
+.app .vnum i { font: 500 12px/1 "Geist", sans-serif; color: var(--mute); font-style: normal; }
 
-.app .vmid small { font: 500 9.5px/1 "Geist Mono", ui-monospace, monospace; letter-spacing: .18em; text-transform: uppercase; color: var(--mute); }
-.app .vbar { height: 3px; margin-top: 8px; background: var(--line); }
-.app .vbar i { background: var(--c); box-shadow: 0 0 10px color-mix(in srgb, var(--c) 70%, transparent); }
+.app .vmid small { font: 500 10px/1 "Geist Mono", ui-monospace, monospace;
+  letter-spacing: .16em; text-transform: uppercase; color: var(--mute); }
 
-.app .vgrade { display: inline-flex; align-items: center; gap: 7px; padding: 0; background: none;
-  font: 500 12.5px/1 "Geist", sans-serif; color: var(--ink); }
-.app .vgrade s { width: 7px; height: 7px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); text-decoration: none; }
+.app .vgrade { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 99px;
+  font: 600 11px/1 "Geist Mono", monospace; letter-spacing: .06em; text-transform: uppercase;
+  background: color-mix(in srgb, var(--c) 15%, rgba(255,255,255,.05));
+  border: 1px solid color-mix(in srgb, var(--c) 32%, transparent);
+  color: #fff; }
+.app .vgrade .gdot { display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--c); box-shadow: 0 0 8px var(--c); }
 
-/* contrast chip: same glass, no tint */
-.app .ratio { padding: 11px 16px; border-radius: 99px; background: color-mix(in srgb, var(--bg) 55%, transparent);
-  border: 1px solid var(--line); color: var(--mute); font: 500 11px/1 "Geist Mono", ui-monospace, monospace; backdrop-filter: blur(14px); }
-.app .ratio b { color: var(--ink); font-weight: 500; }
+/* companion contrast pill */
+.app .ratio { display: inline-flex; align-items: center; gap: 8px; height: 44px;
+  padding: 0 16px; border-radius: 99px; background: rgba(12, 13, 19, 0.94);
+  border: 1px solid var(--line); color: var(--mute);
+  font: 500 10px/1 "Geist Mono", ui-monospace, monospace; letter-spacing: .14em; text-transform: uppercase;
+  backdrop-filter: blur(20px); box-shadow: 0 4px 20px -6px rgba(0,0,0,.5); }
+.app .ratio b { color: var(--ink); font: 700 15px/1 "Geist Mono", monospace; letter-spacing: -.02em; }
+.app .ratio small { color: var(--mute); font: inherit; }
 .app .ratio.low b { color: #ef5d5d; }
 
-/* ---------- glass chrome like the film's nav ---------- */
-.app .bar { position: sticky; top: 0; z-index: 20; backdrop-filter: blur(16px);
+/* ---------- top bar: glass chrome ---------- */
+.app .bar { position: sticky; top: 0; z-index: 20; backdrop-filter: blur(20px) saturate(1.3);
   background: color-mix(in srgb, var(--bg) 65%, transparent); border-bottom: 1px solid var(--line); }
-.app .itabs button.on { color: var(--ink); text-shadow: 0 0 18px var(--hot); }
-.app .itabs::after { background: linear-gradient(90deg, transparent, var(--hot), transparent); box-shadow: 0 0 14px var(--hot); }
-.app .dock { box-shadow: 0 30px 60px -24px #000, 0 0 0 1px rgba(255, 255, 255, .04), 0 0 50px -20px var(--hot); }
+.app .itabs button.on { color: var(--ink); text-shadow: 0 0 20px color-mix(in srgb, var(--hot) 60%, transparent); }
+.app .itabs::after { background: linear-gradient(90deg, transparent, var(--hot), transparent); box-shadow: 0 0 16px var(--hot); }
+.app .dock { box-shadow: 0 32px 64px -24px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.04), 0 0 60px -20px color-mix(in srgb, var(--hot) 25%, transparent); }
 
-/* ---------- entrance: panels stagger in as the iris opens ---------- */
-.app .rail, .app .inspector, .app .stagewrap, .app .dock { opacity: 0; transform: translateY(18px);
-  transition: opacity .8s var(--ease), transform .8s var(--ease); }
-.app.in .rail { opacity: 1; transform: none; transition-delay: .05s; }
-.app.in .stagewrap { opacity: 1; transform: none; transition-delay: .15s; }
-.app.in .inspector { opacity: 1; transform: none; transition-delay: .3s; }
-.app.in .dock { opacity: 1; transform: none; transition-delay: .45s; }
+/* download button */
+.app .dl { background: linear-gradient(180deg, color-mix(in srgb, var(--hot) 80%, #fff), var(--hot)); }
+
+/* ---------- entrance animation for studio panels ---------- */
+.app:not(.in) .inspector, .app:not(.in) .dock {
+  opacity: 0; transform: translateY(18px);
+}
+.app.in .inspector, .app.in .dock, .app.in .stagewrap {
+  opacity: 1; transform: none;
+  transition: opacity .8s var(--ease), transform .8s var(--ease);
+}
+.app.in .stagewrap { transition-delay: .15s; }
+.app.in .inspector { transition-delay: .25s; }
+.app.in .dock { transition-delay: .35s; }
 @media (prefers-reduced-motion: reduce) {
-  .app .rail, .app .inspector, .app .stagewrap, .app .dock { opacity: 1; transform: none; transition: none; }
+  .app .inspector, .app .stagewrap, .app .dock { opacity: 1; transform: none; transition: none; }
 }
 
-/* ---------- quieter resting state on the style tiles ---------- */
-.app .glyph i, .app .cg { opacity: .85; }
-.app .tgrid button:not(.on):hover .glyph i { opacity: 1; }
-
-/* ---------- top bar: never clipped ---------- */
 .app { min-height: 100vh; }
-/* (the bar's sticky/glass rule lives in the "glass chrome" block above) */
-/* registration marks in the corners - quiet structure, like the film's ruler */
-.app .canvas::after { content: ""; position: absolute; inset: 18px; pointer-events: none; z-index: 0; opacity: .75;
+
+/* ---------- canvas registration marks ---------- */
+.app .canvas::after { content: ""; position: absolute; inset: 18px; pointer-events: none; z-index: 0; opacity: .6;
   background:
     linear-gradient(var(--grid-b) 1px, transparent 1px) 0 0 / 16px 1px no-repeat,
     linear-gradient(var(--grid-b) 1px, transparent 1px) 0 0 / 1px 16px no-repeat,
@@ -223,81 +310,432 @@
     linear-gradient(var(--grid-b) 1px, transparent 1px) 100% 100% / 16px 1px no-repeat,
     linear-gradient(var(--grid-b) 1px, transparent 1px) 100% 100% / 1px 16px no-repeat; }
 
-/* ---- UI tuning ---- */
-/* the code was sitting in an orange cloud: two glows were stacking.
-   keep one tight shadow, and let the accent live in the small details. */
-.app .qrcard { box-shadow: 0 24px 48px -26px rgba(0, 0, 0, .75), 0 0 0 1px rgba(255, 255, 255, .05); }
-.app .qrframe::before { opacity: .45; transform: scale(.86); }
-.app .qrframe:hover::before { opacity: .8; transform: scale(.95); }
+/* ---------- qr frame ---------- */
+.app .qrframe::before { opacity: .4; transform: scale(.86); }
+.app .qrframe:hover::before { opacity: .75; transform: scale(.95); }
 
-/* the segmented meters were reading neon; pull them back toward the palette */
-.app .fbar b { box-shadow: none; }
-.app .factors li .fbar b { opacity: .92; }
+/* ---------- glyph tiles: subtle at rest ---------- */
+.app .glyph i, .app .cg { opacity: .85; }
+.app .tgrid button:not(.on):hover .glyph i { opacity: 1; }
 
-/* callouts: annotations, not clutter */
-.app .call { padding: 8px 11px; opacity: .92; transition: opacity .3s var(--ease); }
-.app .call:hover { opacity: 1; }
-.app .call::before { opacity: .6; }
-
-/* download button: keep the accent but stop it shouting */
-.app .dl { background: linear-gradient(180deg, color-mix(in srgb, var(--hot) 78%, #fff), var(--hot)); }
-
-/* stat cards: quieter accent dash, tighter rhythm */
-.app .stats > div::before { width: 20px; opacity: .75; }
 /* =========================================================
-   ENHANCE · instrument dial, technical leaders, staged light
+   INSPECTOR ENHANCEMENTS
    ========================================================= */
 
-/* scorecard: number on the left, a real dial on the right */
-.app .scorecard { align-items: center; gap: 18px; overflow: hidden; position: relative; }
-.app .sc-left { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.app .sc-dial { flex-shrink: 0; position: relative; }
-.app .sc-dial svg { display: block; overflow: visible; }
-.app .sd-tr { fill: none; stroke: var(--line); stroke-width: 6; }
-.app .sd-arc { fill: none; stroke: var(--hot); stroke-width: 6; stroke-linecap: round;
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--hot) 60%, transparent));
-  transition: stroke-dashoffset .9s var(--ease); }
-.app .sd-tick { stroke: var(--line); stroke-width: 1.4; stroke-linecap: round;
-  transition: stroke .25s calc(var(--i) * 8ms); }
-.app .sd-tick.on { stroke: var(--hot); }
-.app .sd-needle { fill: var(--ink); filter: drop-shadow(0 0 4px var(--hot));
-  transition: transform .9s var(--ease); }
-@media (max-width: 420px) { .app .sc-dial { display: none; } }
-
-/* callouts: a real leader line that reaches the code, with a terminal dot */
-.app .call::before { width: 62px; opacity: .75;
-  background: linear-gradient(90deg, transparent, var(--hot)); }
-.app .call::after { content: ""; position: absolute; top: 50%; width: 5px; height: 5px;
-  margin-top: -2.5px; border-radius: 50%; background: var(--hot);
-  box-shadow: 0 0 8px var(--hot); }
-.app .c1::after, .app .c2::after { right: calc(100% + 62px); }
-.app .c3::after { left: calc(100% + 62px); }
-
-/* a pool of light on the stage so the code reads as lit, not pasted on */
-.app .stagewrap::before { content: ""; position: absolute; left: 50%; top: 46%;
-  width: 118%; height: 104%; transform: translate(-50%, -50%); z-index: 0; pointer-events: none;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--hot) 9%, transparent), transparent 72%);
-  filter: blur(6px); }
-.app .stagewrap > * { position: relative; z-index: 1; }
-
-/* inspector: numbered sections, auto-counted */
-.app .details { counter-reset: sec; }
-.app .details h3 { counter-increment: sec; }
-.app .details h3::before { content: "0" counter(sec); color: var(--hot); opacity: .85;
+/* numbered section headings + trailing hairline */
+.app .details { counter-reset: sec; gap: 16px; }
+.app .details h3 { counter-increment: sec; display: flex; align-items: center; gap: 10px;
+  margin: 24px 0 10px; font: 500 9.5px/1 "Geist Mono", ui-monospace, monospace;
+  letter-spacing: .22em; text-transform: uppercase; opacity: .7; }
+.app .details h3::before { content: "0" counter(sec); color: var(--hot); opacity: 1;
   font: 500 10px/1 "Geist Mono", ui-monospace, monospace; letter-spacing: .1em; }
+.app .details h3::after { content: ""; flex: 1; height: 1px; background: currentColor; opacity: .12; }
 
-/* raw data deserves to look like a terminal line */
-.app .raw { border-radius: 12px; }
+/* style tiles: more padding, bigger rounding */
+.app .tgrid button { border-radius: 14px; padding: 11px 4px 9px;
+  transition: border-color .2s, background .2s, transform .18s var(--ease), box-shadow .2s; }
+.app .tgrid button:hover { border-color: color-mix(in srgb, var(--hot) 55%, transparent);
+  background: color-mix(in srgb, var(--hot) 6%, var(--panel));
+  box-shadow: 0 6px 20px -6px rgba(0,0,0,.4), 0 0 18px -6px color-mix(in srgb, var(--hot) 25%, transparent); }
+
+/* presets: taller swatch preview */
+.app .presets button { border-radius: 14px; gap: 8px; padding: 8px 6px 7px; }
+.app .presets button i { height: 28px; border-radius: 8px; }
+.app .presets button:hover { border-color: color-mix(in srgb, var(--hot) 55%, transparent);
+  box-shadow: 0 8px 24px -8px rgba(0,0,0,.4), 0 0 20px -6px color-mix(in srgb, var(--hot) 25%, transparent); }
+
+/* raw data terminal block */
+.app .raw { border-radius: 14px; }
 .app .raw code { letter-spacing: .01em; }
 
-/* quick-save buttons: give the format name some weight */
-.app .fsizes button b { font-weight: 600; letter-spacing: .02em; }
-.app .fsizes button span { opacity: .7; }
+/* quick-save format buttons */
+.app .fsizes button { border-radius: 14px; }
+.app .fsizes button b { font-weight: 600; letter-spacing: .04em; }
+.app .fsizes button span { opacity: .65; }
+.app .fsizes button:hover { border-color: color-mix(in srgb, var(--hot) 50%, transparent);
+  box-shadow: 0 8px 22px -8px rgba(0,0,0,.4), 0 0 18px -6px color-mix(in srgb, var(--hot) 20%, transparent); }
 
-/* the dock floats a little higher off the panel.
-   desktop-only: below 981px the dock goes static and centred, and this
-   translateX(-50%) would shove it off-centre. */
+/* "when scanned" card — orange left border */
+.app .onscan { border-radius: 14px; border-left-width: 2px; border-left-color: var(--hot); }
+
+/* swatch + toggle */
+.app .swatch, .app .toggle { border-radius: 14px; }
+
+/* input field */
+.app .inwrap input { border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--ink); }
+.app .inwrap input:hover { border-color: var(--line); }
+
+/* logo drop zone */
+.app .drop { border-radius: 16px; border-color: color-mix(in srgb, var(--mute) 45%, transparent); }
+.app .drop:hover { border-color: var(--hot); background: color-mix(in srgb, var(--hot) 5%, var(--panel)); }
+
+/* inspector tab bar */
+.app .itabs { border-bottom-color: var(--line); }
+.app .itabs button {
+  font: 500 12px/1 "Geist Mono", ui-monospace, monospace;
+  letter-spacing: .10em; text-transform: uppercase; padding: 14px 0; }
+
+/* =========================================================
+   RAIL — guaranteed visible in both light & dark modes
+   ========================================================= */
+.app .rail {
+  opacity: 1 !important;
+  transform: none !important;
+  border-right: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(20px) saturate(1.4);
+  z-index: 3;
+}
+.app .rail button {
+  font-size: 10px;
+  letter-spacing: .06em;
+  color: var(--mute);
+  opacity: 1 !important;
+  border-bottom: 1px solid var(--hair);
+}
+.app .rail button svg {
+  color: currentColor;
+  stroke: currentColor;
+}
+.app .rail button:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--hot) 6%, var(--panel));
+  transform: translateX(2px);
+}
+.app .rail button.on {
+  color: var(--hot);
+  background: color-mix(in srgb, var(--hot) 10%, transparent);
+  box-shadow: inset 3px 0 0 var(--hot), 0 0 35px -8px color-mix(in srgb, var(--hot) 50%, transparent);
+}
+.app .rail button.on svg {
+  color: var(--hot);
+  stroke: var(--hot);
+}
+
+/* =========================================================
+   DOCK
+   ========================================================= */
 @media (min-width: 981px) {
   .app .dock { transform: translateX(-50%) translateY(-2px); }
-  .app .dock:hover { transform: translateX(-50%) translateY(-4px); }
+  .app .dock:hover {
+    transform: translateX(-50%) translateY(-5px);
+    transition: transform .3s var(--ease), box-shadow .3s var(--ease);
+    box-shadow: 0 40px 70px -24px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.05),
+      0 0 70px -16px color-mix(in srgb, var(--hot) 30%, transparent); }
+}
+
+/* =========================================================
+   STAGE LIGHT — pool of light behind the QR code
+   ========================================================= */
+.app .stagewrap { isolation: isolate; }
+.app .stagewrap::before { content: ""; position: absolute; left: 50%; top: 46%;
+  width: 124%; height: 110%; transform: translate(-50%, -50%); z-index: 0; pointer-events: none;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--hot) 10%, transparent), transparent 72%);
+  filter: blur(8px); }
+.app .stagewrap > * { position: relative; z-index: 1; }
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+.app .inspector, .app .inspector * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.15) transparent; }
+
+/* =========================================================
+   LIGHT MODE HIGH-CONTRAST TYPOGRAPHY & SURFACES
+   Fixes washed-out / invisible text in light mode
+   ========================================================= */
+.app:not(.dark) {
+  --ink: #0d0e14;
+  --mute: #484b57;
+}
+
+/* 1. Scorecard: 96% number and labels */
+.app:not(.dark) .scorecard {
+  background: radial-gradient(130% 150% at 0% 0%, color-mix(in srgb, var(--hot) 14%, transparent), transparent 60%), #fbfaf6;
+  border-color: rgba(10, 10, 16, 0.14);
+  box-shadow: 0 4px 18px -4px rgba(10, 10, 16, 0.08);
+}
+.app:not(.dark) .sc-num b {
+  background: linear-gradient(180deg, #111218 30%, color-mix(in srgb, var(--hot) 80%, #111218));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.app:not(.dark) .sc-num i {
+  color: #3e414f;
+  font-weight: 600;
+}
+.app:not(.dark) .sc-meta {
+  color: #353744;
+  font-weight: 700;
+}
+.app:not(.dark) .sc-meta .gpill {
+  background: #edeae0;
+  border-color: rgba(10, 10, 16, 0.16);
+  font-weight: 700;
+}
+.app:not(.dark) .sd-tr {
+  stroke: rgba(10, 10, 16, 0.14);
+}
+.app:not(.dark) .sd-tick {
+  stroke: rgba(10, 10, 16, 0.20);
+}
+
+/* 2. Floating callouts around QR code */
+.app:not(.dark) .call {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(10, 10, 16, 0.18);
+  color: #383b48;
+  font-weight: 700;
+  box-shadow: 0 6px 20px -6px rgba(10, 10, 16, 0.12);
+}
+.app:not(.dark) .call b {
+  color: #0b0c12;
+  font-weight: 700;
+}
+
+/* 3. Verdict & ratio companion pills under the QR code */
+.app:not(.dark) .verdict {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(10, 10, 16, 0.16);
+  color: #0d0e14;
+  box-shadow: 0 4px 18px -4px rgba(10, 10, 16, 0.08);
+}
+.app:not(.dark) .vnum b {
+  color: #0d0e14;
+}
+.app:not(.dark) .vnum i {
+  color: #404352;
+}
+.app:not(.dark) .vmid small {
+  color: #404352;
+  font-weight: 700;
+}
+.app:not(.dark) .vgrade {
+  background: color-mix(in srgb, var(--c) 12%, #fff);
+  border-color: color-mix(in srgb, var(--c) 35%, transparent);
+  color: #0d0e14;
+  font-weight: 700;
+}
+.app:not(.dark) .ratio {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(10, 10, 16, 0.16);
+  color: #404352;
+  box-shadow: 0 4px 18px -4px rgba(10, 10, 16, 0.08);
+}
+.app:not(.dark) .ratio b {
+  color: #0d0e14;
+}
+.app:not(.dark) .ratio small {
+  color: #404352;
+  font-weight: 700;
+}
+
+/* remove dark shadow smudge in light mode */
+.app:not(.dark) .qrframe::after { display: none !important; }
+.app:not(.dark) .qrframe::before { opacity: 0.15; }
+
+/* 4. Factors meter rows (Contrast, Size, Margin, Density, Error fix) */
+.app:not(.dark) .factors li span {
+  color: #2b2d38;
+  font-weight: 600;
+}
+.app:not(.dark) .factors li em {
+  color: #111218;
+  font-weight: 700;
+}
+.app:not(.dark) .fbar {
+  background: rgba(10, 10, 16, 0.12);
+}
+
+/* 5. Section titles and inspector labels */
+.app:not(.dark) .details h3,
+.app:not(.dark) .tl,
+.app:not(.dark) .field > span,
+.app:not(.dark) .slide > span,
+.app:not(.dark) .swatch > span,
+.app:not(.dark) .toggle > span {
+  color: #353744;
+  font-weight: 700;
+}
+.app:not(.dark) .details h3::after {
+  opacity: .3;
+}
+
+/* 6. Onscan card ("When scanned") */
+.app:not(.dark) .onscan {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(10, 10, 16, 0.14);
+}
+.app:not(.dark) .onscan span {
+  color: #3e414f;
+  font-weight: 600;
+}
+.app:not(.dark) .onscan b {
+  color: #0d0e14;
+}
+
+/* 7. Stats grid cards (Grid, Version, Data, etc.) */
+.app:not(.dark) .stats > div {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(10, 10, 16, 0.14);
+}
+.app:not(.dark) .stats dt {
+  color: #404352;
+  font-weight: 700;
+}
+.app:not(.dark) .stats dd {
+  color: #0d0e14;
+  font-weight: 700;
+}
+
+/* 8. Quick save format buttons and raw data */
+.app:not(.dark) .fsizes button {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(10, 10, 16, 0.14);
+}
+.app:not(.dark) .fsizes button b {
+  color: #0d0e14;
+}
+.app:not(.dark) .fsizes button span {
+  color: #404352;
+  font-weight: 600;
+}
+.app:not(.dark) .raw {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(10, 10, 16, 0.2);
+  color: #353744;
+}
+.app:not(.dark) .raw code {
+  color: #111218;
+}
+
+/* 9. Left rail text and icons */
+.app:not(.dark) .rail {
+  background: color-mix(in srgb, var(--bg) 85%, #fff);
+  border-color: rgba(10, 10, 16, 0.14);
+}
+.app:not(.dark) .rail button {
+  color: #404352;
+  font-weight: 600;
+  border-bottom-color: rgba(10, 10, 16, 0.08);
+}
+.app:not(.dark) .rail button span {
+  color: #404352;
+  font-weight: 700;
+}
+.app:not(.dark) .rail button:hover {
+  color: #0d0e14;
+}
+.app:not(.dark) .rail button.on {
+  color: var(--hot);
+}
+.app:not(.dark) .rail button.on span {
+  color: var(--hot);
+}
+
+/* 10. Dock at bottom */
+.app:not(.dark) .dock {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(10, 10, 16, 0.16);
+  box-shadow: 0 20px 48px -16px rgba(10, 10, 16, 0.15);
+}
+.app:not(.dark) .dock .seg {
+  background: #edeae0;
+  border-color: rgba(10, 10, 16, 0.14);
+}
+.app:not(.dark) .dock .seg button {
+  color: #404352;
+  font-weight: 700;
+}
+.app:not(.dark) .dock .seg button.on {
+  color: #0d0e14;
+}
+.app:not(.dark) .dock .seg::before {
+  background: #ffffff !important;
+  border: 1px solid rgba(10, 10, 16, 0.12);
+  box-shadow: 0 1px 4px rgba(10, 10, 16, 0.12);
+}
+.app:not(.dark) .dock .plain {
+  background: #ffffff;
+  border-color: rgba(10, 10, 16, 0.16);
+  color: #0d0e14;
+}
+.app:not(.dark) .dock .sep {
+  background: rgba(10, 10, 16, 0.14);
+}
+
+/* 11. Top bar & inspector */
+.app:not(.dark) .bar {
+  background: color-mix(in srgb, var(--bg) 85%, #fff);
+  border-color: rgba(10, 10, 16, 0.14);
+}
+.app:not(.dark) .brand .wm {
+  color: #0d0e14;
+}
+.app:not(.dark) .brand em {
+  color: #404352;
+  border-color: rgba(10, 10, 16, 0.16);
+  background: #edeae0;
+  font-weight: 700;
+}
+.app:not(.dark) .coords {
+  color: #404352;
+  font-weight: 600;
+}
+.app:not(.dark) .plain {
+  background: #ffffff;
+  border-color: rgba(10, 10, 16, 0.16);
+  color: #111218;
+  font-weight: 600;
+}
+.app:not(.dark) .plain:hover:not(:disabled) {
+  background: #edeae0;
+  border-color: var(--hot);
+}
+.app:not(.dark) .inspector {
+  background: color-mix(in srgb, var(--bg) 85%, #fff);
+  border-color: rgba(10, 10, 16, 0.14);
+  scrollbar-color: rgba(10, 10, 16, 0.2) transparent;
+}
+.app:not(.dark) .itabs button {
+  color: #404352;
+  font-weight: 700;
+}
+.app:not(.dark) .itabs button.on {
+  color: #0d0e14;
+  text-shadow: none;
+}
+.app:not(.dark) .inwrap input {
+  background: #ffffff;
+  border-color: rgba(10, 10, 16, 0.16);
+  color: #0d0e14;
+}
+.app:not(.dark) .tgrid button {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(10, 10, 16, 0.14);
+  color: #353744;
+  font-weight: 600;
+}
+.app:not(.dark) .tgrid button:hover {
+  color: #0d0e14;
+  border-color: var(--hot);
+}
+.app:not(.dark) .presets button {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(10, 10, 16, 0.14);
+  color: #111218;
+  font-weight: 600;
+}
+.app:not(.dark) .swatch, .app:not(.dark) .toggle {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(10, 10, 16, 0.14);
+  color: #111218;
+}
+.app:not(.dark) .slide em {
+  color: #0d0e14;
+  font-weight: 700;
+}
+.app:not(.dark) .slide input::-webkit-slider-thumb {
+  border-color: var(--hot);
+  background: #ffffff;
 }
