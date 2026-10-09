@@ -2,9 +2,9 @@
 
 **Design. Customize. Scan.**
 
-[**Live Demo:**] (https://qr-code-generator-theta-ashen.vercel.app/)
+**Live Demo:** https://qr-code-generator-theta-ashen.vercel.app
 
-[**GitHub Repository:**](https://github.com/TSsanjayy/QR-Code-Generator)**&#x20;-> [https://github.com/TSsanjayy/QR-Code-Generator](https://github.com/TSsanjayy/QR-Code-Generator)
+**GitHub Repository:** https://github.com/TSsanjayy/QR-Code-Generator
 
 ---
 
