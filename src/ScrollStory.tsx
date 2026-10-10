@@ -132,7 +132,10 @@ export default function ScrollStory({ lenis }: { lenis?: Lenis | null }) {
       const t = seg(p, 0.955, 0.995);
       const iris = t * t * (3 - 2 * t);
       const st = stickRef.current;
-      if (st) st.style.setProperty("--iris", `${(iris * 115).toFixed(1)}%`);
+      if (st) {
+        st.classList.toggle("iris-on", iris > 0.001);
+        st.style.setProperty("--iris", `${(iris * 115).toFixed(1)}%`);
+      }
       if (studioEl) {
         studioEl.style.transform = iris >= 1 ? "" : `scale(${(0.97 + 0.03 * iris).toFixed(4)})`;
       }
